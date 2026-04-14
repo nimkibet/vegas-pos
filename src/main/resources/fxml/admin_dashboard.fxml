@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+            fx:controller="com.pos.controller.AdminDashboardController"
+            stylesheets="@../css/style.css">
+    
+    <!-- Top Header -->
+    <top>
+        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 15 20;" alignment="CENTER_LEFT">
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Label text="⚙️" style="-fx-font-size: 24; -fx-text-fill: white;" />
+                <Label text="Backoffice Dashboard" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;" />
+            </HBox>
+            <Region HBox.hgrow="ALWAYS" />
+            <HBox spacing="20" alignment="CENTER_RIGHT">
+                <Label fx:id="userLabel" text="User: Admin" style="-fx-font-size: 13; -fx-text-fill: white;" />
+                <Button text="Back to POS" onAction="#handleBackToPOS" style="-fx-font-size: 12; -fx-padding: 8 16; -fx-background-color: #2f855a; -fx-text-fill: white; -fx-background-radius: 5;" />
+                <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />
+            </HBox>
+        </HBox>
+    </top>
+    
+    <!-- Left Navigation Menu -->
+    <left>
+        <VBox style="-fx-background-color: #2d3748; -fx-padding: 20;" prefWidth="220" VBox.vgrow="ALWAYS">
+            <VBox spacing="10" VBox.vgrow="ALWAYS">
+                <Button fx:id="navProductMgmt" text="📦 Product Management" onAction="#showProductManagement" 
+                        style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;" 
+                        onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
+                <Button fx:id="navStockVerify" text="🔍 Stock Verification" onAction="#showStockVerification" 
+                        style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
+                <Button fx:id="navApprovalQueue" text="✓ Approval Queue" onAction="#showApprovalQueue" 
+                        style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
+                <Button fx:id="navAnalytics" text="📊 Analytics" onAction="#showAnalytics" 
+                        style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
+            </VBox>
+            
+            <VBox style="-fx-padding: 20 0;">
+                <Label text="Quick Stats" style="-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: #a0aec0;" />
+                <VBox style="-fx-padding: 10 0; -fx-spacing: 5;">
+                    <Label fx:id="totalProductsLabel" text="Products: 0" style="-fx-font-size: 11; -fx-text-fill: #cbd5e0;" />
+                    <Label fx:id="pendingApprovalsLabel" text="Pending: 0" style="-fx-font-size: 11; -fx-text-fill: #cbd5e0;" />
+                    <Label fx:id="lowStockLabel" text="Low Stock: 0" style="-fx-font-size: 11; -fx-text-fill: #cbd5e0;" />
+                </VBox>
+            </VBox>
+        </VBox>
+    </left>
+    
+    <!-- Center Content Area -->
+    <center>
+        <StackPane fx:id="contentArea">
+            <!-- Product Management View -->
+            <VBox fx:id="productMgmtView" style="-fx-padding: 20; -fx-spacing: 15;" visible="true">
+                <Label text="Product Management" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <TextField fx:id="productSearchField" promptText="Search products..." 
+                               style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" />
+                    <Button text="Search" onAction="#handleProductSearch" styleClass="btn-primary" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="+ Add New Product" onAction="#handleAddProduct" styleClass="btn-success" />
+                    <Button text="Refresh" onAction="#loadAllProducts" styleClass="button" />
+                </HBox>
+                
+                <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                    <columns>
+                        <TableColumn text="Barcode" fx:id="colProductBarcode" prefWidth="120" />
+                        <TableColumn text="Product Name" fx:id="colProductName" prefWidth="180" />
+                        <TableColumn text="Category" fx:id="colProductCategory" prefWidth="100" />
+                        <TableColumn text="Retail Price" fx:id="colProductRetail" prefWidth="100" />
+                        <TableColumn text="Wholesale Price" fx:id="colProductWholesale" prefWidth="110" />
+                        <TableColumn text="Stock" fx:id="colProductStock" prefWidth="70" />
+                        <TableColumn text="Supplier" fx:id="colProductSupplier" prefWidth="100" />
+                        <TableColumn text="Status" fx:id="colProductStatus" prefWidth="80" />
+                    </columns>
+                </TableView>
+                
+                <HBox spacing="10">
+                    <Button text="Edit Selected" onAction="#handleEditProduct" styleClass="btn-primary" />
+                    <Button text="Delete Selected" onAction="#handleDeleteProduct" styleClass="btn-danger" />
+                    <Button text="Adjust Stock" onAction="#handleAdjustStock" styleClass="btn-warning" />
+                </HBox>
+            </VBox>
+            
+            <!-- Stock Verification View -->
+            <VBox fx:id="stockVerifyView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">
+                <Label text="Stock Verification" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <TextField fx:id="stockSearchField" promptText="Scan barcode or search..." 
+                               style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" />
+                    <Button text="Search" onAction="#handleStockSearch" styleClass="btn-primary" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="Show Low Stock Only" onAction="#showLowStock" styleClass="button" />
+                    <Button text="Show All" onAction="#showAllStock" styleClass="button" />
+                </HBox>
+                
+                <TableView fx:id="stockTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                    <columns>
+                        <TableColumn text="Barcode" fx:id="colStockBarcode" prefWidth="120" />
+                        <TableColumn text="Product Name" fx:id="colStockName" prefWidth="200" />
+                        <TableColumn text="Current Stock" fx:id="colCurrentStock" prefWidth="100" />
+                        <TableColumn text="Min Level" fx:id="colMinLevel" prefWidth="80" />
+                        <TableColumn text="Retail Price" fx:id="colStockRetail" prefWidth="100" />
+                        <TableColumn text="Category" fx:id="colStockCategory" prefWidth="100" />
+                    </columns>
+                </TableView>
+                
+                <VBox style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-spacing: 10;">
+                    <Label text="Quick Stock Adjustment" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <Label text="Selected Product:" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
+                        <Label fx:id="selectedProductLabel" text="None" style="-fx-font-size: 13; -fx-font-weight: bold;" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Label text="New Stock Count:" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
+                        <TextField fx:id="newStockField" promptText="Enter count" 
+                                   style="-fx-font-size: 13; -fx-padding: 8; -fx-pref-width: 100;" />
+                        <Button text="Update Stock" onAction="#handleStockAdjustment" styleClass="btn-warning" />
+                    </HBox>
+                </VBox>
+            </VBox>
+            
+            <!-- Approval Queue View -->
+            <VBox fx:id="approvalQueueView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">
+                <Label text="Approval Queue" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                
+                <HBox spacing="15">
+                    <Label text="Products awaiting approval from Attendants" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="Refresh" onAction="#loadPendingApprovals" styleClass="button" />
+                </HBox>
+                
+                <TableView fx:id="approvalTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                    <columns>
+                        <TableColumn text="Barcode" fx:id="colApprovalBarcode" prefWidth="120" />
+                        <TableColumn text="Product Name" fx:id="colApprovalName" prefWidth="180" />
+                        <TableColumn text="Category" fx:id="colApprovalCategory" prefWidth="100" />
+                        <TableColumn text="Retail Price" fx:id="colApprovalRetail" prefWidth="100" />
+                        <TableColumn text="Wholesale Price" fx:id="colApprovalWholesale" prefWidth="110" />
+                        <TableColumn text="Stock" fx:id="colApprovalStock" prefWidth="70" />
+                        <TableColumn text="Added Date" fx:id="colApprovalDate" prefWidth="100" />
+                    </columns>
+                </TableView>
+                
+                <HBox spacing="10">
+                    <Button text="Approve Item" onAction="#handleApproveItem" styleClass="btn-primary" />
+                    <Button text="Reject Item" onAction="#handleRejectItem" styleClass="btn-danger" />
+                </HBox>
+            </VBox>
+            
+            <!-- Analytics View -->
+            <VBox fx:id="analyticsView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">
+                <Label text="Analytics" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                
+                <HBox spacing="15">
+                    <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 20; -fx-pref-width: 200;" alignment="CENTER">
+                        <Label text="Today's Revenue" style="-fx-font-size: 12; -fx-text-fill: #6c757d;" />
+                        <Label fx:id="todayRevenueLabel" text="KSh0.00" style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                    </VBox>
+                    <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 20; -fx-pref-width: 200;" alignment="CENTER">
+                        <Label text="Today's Transactions" style="-fx-font-size: 12; -fx-text-fill: #6c757d;" />
+                        <Label fx:id="todayTransactionsLabel" text="0" style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                    </VBox>
+                    <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 20; -fx-pref-width: 200;" alignment="CENTER">
+                        <Label text="Total Products" style="-fx-font-size: 12; -fx-text-fill: #6c757d;" />
+                        <Label fx:id="analyticsProductsLabel" text="0" style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                    </VBox>
+                </HBox>
+                
+                <HBox spacing="15" VBox.vgrow="ALWAYS">
+                    <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 15;" HBox.hgrow="ALWAYS">
+                        <Label text="7-Day Revenue Trend" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                        <LineChart fx:id="revenueChart" VBox.vgrow="ALWAYS" prefHeight="300">
+                            <xAxis>
+                                <CategoryAxis label="Date" />
+                            </xAxis>
+                            <yAxis>
+                                <NumberAxis label="Revenue (KSh)" />
+                            </yAxis>
+                        </LineChart>
+                    </VBox>
+                    
+                    <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 15;" HBox.hgrow="ALWAYS">
+                        <Label text="Top Selling Items" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+                        <PieChart fx:id="topItemsChart" VBox.vgrow="ALWAYS" prefHeight="300" />
+                    </VBox>
+                </HBox>
+            </VBox>
+        </StackPane>
+    </center>
+</BorderPane>

@@ -1,0 +1,345 @@
+/* Vegas Supermarket POS - Modern Professional Styles */
+
+.root {
+    -fx-font-family: 'Segoe UI', 'Roboto', sans-serif;
+    -fx-font-size: 14px;
+    -fx-background-color: #f5f7fa;
+    -fx-text-fill: #2d3748;
+}
+
+.main-container {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 20, 0, 0, 2);
+}
+
+/* Header Styles */
+.header {
+    -fx-background-color: linear-gradient(to right, #1a5f2a, #2d8a3e);
+    -fx-text-fill: white;
+    -fx-padding: 20;
+}
+
+.logo-text {
+    -fx-font-family: 'Segoe UI', sans-serif;
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-letter-spacing: 2;
+}
+
+.logo-subtitle {
+    -fx-font-size: 11px;
+    -fx-text-fill: rgba(255,255,255,0.8);
+    -fx-letter-spacing: 4;
+}
+
+/* Button Styles */
+.btn-primary {
+    -fx-background-color: #1a5f2a;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(26,95,42,0.3), 8, 0, 0, 2);
+}
+
+.btn-primary:hover {
+    -fx-background-color: #2d8a3e;
+}
+
+.btn-primary:pressed {
+    -fx-background-color: #154a21;
+}
+
+.btn-success {
+    -fx-background-color: #28a745;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.btn-success:hover {
+    -fx-background-color: #34ce57;
+}
+
+.btn-danger {
+    -fx-background-color: #dc3545;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.btn-danger:hover {
+    -fx-background-color: #e4606d;
+}
+
+.btn-info {
+    -fx-background-color: #17a2b8;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.btn-info:hover {
+    -fx-background-color: #3db5d4;
+}
+
+.btn-secondary {
+    -fx-background-color: #6c757d;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 24;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+/* Input Styles */
+.text-field, .password-field {
+    -fx-background-color: #f8f9fa;
+    -fx-background-radius: 6;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 6;
+    -fx-padding: 12;
+    -fx-font-size: 14px;
+}
+
+.text-field:focused, .password-field:focused {
+    -fx-border-color: #1a5f2a;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(gaussian, rgba(26,95,42,0.2), 4, 0, 0, 1);
+}
+
+/* Table Styles */
+.table-view {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 8;
+}
+
+.table-view .column-header {
+    -fx-background-color: #f8f9fa;
+    -fx-font-weight: 600;
+    -fx-font-size: 13px;
+    -fx-text-fill: #4a5568;
+}
+
+.table-view .table-cell {
+    -fx-padding: 12 8;
+    -fx-font-size: 13px;
+}
+
+.table-row-cell:hover {
+    -fx-background-color: #f0f7f1;
+}
+
+.table-row-cell:selected {
+    -fx-background-color: #d4edda;
+}
+
+/* Panel Styles */
+.panel {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 10;
+    -fx-padding: 20;
+}
+
+.panel-header {
+    -fx-font-size: 18px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #1a5f2a;
+    -fx-padding: 0 0 15 0;
+}
+
+/* Card Styles */
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 10, 0, 0, 2);
+    -fx-padding: 20;
+}
+
+/* Status Bar */
+.status-bar {
+    -fx-background-color: #f0f4f8;
+    -fx-padding: 12 20;
+}
+
+.status-indicator {
+    -fx-font-size: 12px;
+    -fx-text-fill: #718096;
+}
+
+.status-online {
+    -fx-text-fill: #28a745;
+}
+
+.status-offline {
+    -fx-text-fill: #dc3545;
+}
+
+/* Label Styles */
+.label-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a5f2a;
+}
+
+.label-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #718096;
+}
+
+.label-price {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a5f2a;
+}
+
+.label-total {
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #28a745;
+}
+
+/* Form Styles */
+.form-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #4a5568;
+}
+
+.form-error {
+    -fx-text-fill: #dc3545;
+    -fx-font-size: 12px;
+}
+
+/* Toggle Button */
+.toggle-button {
+    -fx-background-color: #e2e8f0;
+    -fx-text-fill: #4a5568;
+    -fx-padding: 8 16;
+    -fx-background-radius: 6;
+}
+
+.toggle-button:selected {
+    -fx-background-color: #1a5f2a;
+    -fx-text-fill: white;
+}
+
+/* Separator */
+.separator {
+    -fx-background-color: #e2e8f0;
+}
+
+/* Checkout Panel */
+.checkout-panel {
+    -fx-background-color: #f8f9fa;
+    -fx-background-radius: 10;
+    -fx-padding: 20;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 10;
+}
+
+/* Radio Button */
+.radio-button {
+    -fx-font-size: 14px;
+    -fx-padding: 8 16;
+}
+
+.radio-button:selected {
+    -fx-text-fill: #1a5f2a;
+    -fx-font-weight: 600;
+}
+
+/* Login Screen Specific */
+.login-container {
+    -fx-background-color: white;
+    -fx-background-radius: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 30, 0, 0, 4);
+    -fx-padding: 40;
+}
+
+.login-header {
+    -fx-background-color: linear-gradient(to right, #1a5f2a, #2d8a3e);
+    -fx-padding: 30 40;
+    -fx-background-radius: 16 16 0 0;
+}
+
+.login-footer {
+    -fx-background-color: #f8f9fa;
+    -fx-padding: 15;
+    -fx-background-radius: 0 0 16 16;
+}
+
+/* Animation Effects */
+@keyframes fadeIn {
+    from { -fx-opacity: 0; }
+    to { -fx-opacity: 1; }
+}
+
+.fade-in {
+    -fx-animation: fadeIn 0.3s ease-in;
+}
+
+/* Scrollbar Styles */
+.scroll-bar {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #cbd5e0;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #a0aec0;
+}
+
+/* Empty State */
+.empty-state {
+    -fx-text-fill: #a0aec0;
+    -fx-font-size: 16px;
+    -fx-padding: 40;
+}
+
+/* Badges */
+.badge {
+    -fx-background-color: #e2e8f0;
+    -fx-text-fill: #4a5568;
+    -fx-font-size: 11px;
+    -fx-font-weight: 600;
+    -fx-padding: 4 8;
+    -fx-background-radius: 4;
+}
+
+.badge-success {
+    -fx-background-color: #d4edda;
+    -fx-text-fill: #155724;
+}
+
+.badge-warning {
+    -fx-background-color: #fff3cd;
+    -fx-text-fill: #856404;
+}
+
+.badge-danger {
+    -fx-background-color: #f8d7da;
+    -fx-text-fill: #721c24;
+}

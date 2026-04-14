@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vegas Supermarket Logo - Professional SVG -->
+<svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Gradient for the leaf icon -->
+        <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#2d8a3e;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a5f2a;stop-opacity:1" />
+        </linearGradient>
+        
+        <!-- Gradient for background -->
+        <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#1a5f2a;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#2d8a3e;stop-opacity:1" />
+        </linearGradient>
+        
+        <!-- Shadow filter -->
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.2"/>
+        </filter>
+    </defs>
+    
+    <!-- Background rounded rectangle -->
+    <rect x="0" y="0" width="400" height="120" rx="10" fill="url(#bgGradient)"/>
+    
+    <!-- Icon container circle -->
+    <circle cx="60" cy="60" r="40" fill="white" fill-opacity="0.15"/>
+    
+    <!-- Leaf/Shopping icon -->
+    <g filter="url(#shadow)">
+        <!-- Basket base -->
+        <path d="M35 70 L45 90 L75 90 L85 70" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        
+        <!-- Handle left -->
+        <path d="M40 70 Q40 45 60 45" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+        
+        <!-- Handle right -->
+        <path d="M80 70 Q80 45 60 45" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+        
+        <!-- Leaf on top -->
+        <path d="M55 40 Q65 30 60 38 Q55 35 55 40" fill="url(#leafGradient)" stroke="white" stroke-width="1.5"/>
+        <path d="M65 42 Q72 35 68 42 Q65 40 65 42" fill="url(#leafGradient)" stroke="white" stroke-width="1.5"/>
+        
+        <!-- Produce items in basket -->
+        <circle cx="50" cy="75" r="5" fill="#ff6b6b"/>
+        <circle cx="60" cy="73" r="5" fill="#ffd93d"/>
+        <circle cx="70" cy="75" r="5" fill="#6bcb77"/>
+    </g>
+    
+    <!-- Text: VEGAS -->
+    <text x="115" y="55" font-family="Segoe UI, Arial, sans-serif" font-size="36" font-weight="bold" fill="white" letter-spacing="2">VEGAS</text>
+    
+    <!-- Underline for VEGAS -->
+    <rect x="115" y="62" width="100" height="3" fill="white" fill-opacity="0.8" rx="1.5"/>
+    
+    <!-- Text: SUPERMARKET -->
+    <text x="115" y="85" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="500" fill="white" fill-opacity="0.9" letter-spacing="6">SUPERMARKET</text>
+    
+    <!-- Tagline -->
+    <text x="115" y="105" font-family="Segoe UI, Arial, sans-serif" font-size="10" fill="white" fill-opacity="0.7" letter-spacing="2">FRESH • QUALITY • VALUE</text>
+    
+    <!-- Quality badge -->
+    <g transform="translate(300, 25)">
+        <circle cx="25" cy="25" r="20" fill="white" fill-opacity="0.2"/>
+        <path d="M25 10 L27 18 L35 18 L29 23 L31 32 L25 27 L19 32 L21 23 L15 18 L23 18 Z" fill="white"/>
+    </g>
+</svg>

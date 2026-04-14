@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<DialogPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.pos.controller.ManagerAuthController"
+            stylesheets="@../css/style.css">
+    
+    <header>
+        <Label text="Manager Authorization Required" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+    </header>
+    
+    <content>
+        <VBox spacing="15" style="-fx-padding: 20;">
+            <Label text="This action requires manager authorization." style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
+            <Label text="Please enter manager credentials:" style="-fx-font-size: 12; -fx-text-fill: #718096;" />
+            
+            <VBox spacing="10">
+                <Label text="Username:" style="-fx-font-size: 12; -fx-text-fill: #4a5568;" />
+                <TextField fx:id="usernameField" promptText="Enter manager username" style="-fx-font-size: 13; -fx-padding: 8;" />
+                
+                <Label text="Password:" style="-fx-font-size: 12; -fx-text-fill: #4a5568;" />
+                <PasswordField fx:id="passwordField" promptText="Enter manager password" style="-fx-font-size: 13; -fx-padding: 8;" />
+            </VBox>
+            
+            <Label fx:id="errorLabel" text="" style="-fx-font-size: 12; -fx-text-fill: #e53e3e;" visible="false" />
+        </VBox>
+    </content>
+    
+    <buttonTypes>
+        <ButtonType text="Authorize" buttonData="OK_DONE" />
+        <ButtonType text="Cancel" buttonData="CANCEL_CLOSE" />
+    </buttonTypes>
+</DialogPane>

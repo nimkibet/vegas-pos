@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.pos.controller.UserProfileController"
+      spacing="15" style="-fx-padding: 20;">
+
+    <Label text="My Profile" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+
+    <GridPane hgap="10" vgap="10">
+        <columnConstraints>
+            <ColumnConstraints minWidth="120" prefWidth="120"/>
+            <ColumnConstraints minWidth="200" prefWidth="200"/>
+        </columnConstraints>
+
+        <Label text="User ID:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <TextField fx:id="userIdField" GridPane.columnIndex="1" GridPane.rowIndex="0" editable="false" style="-fx-background-color: #f0f0f0;"/>
+
+        <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <TextField fx:id="usernameField" GridPane.columnIndex="1" GridPane.rowIndex="1" editable="false" style="-fx-background-color: #f0f0f0;"/>
+
+        <Label text="Full Name:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <TextField fx:id="fullNameField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+        <Label text="Role:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+        <TextField fx:id="roleField" GridPane.columnIndex="1" GridPane.rowIndex="3" editable="false" style="-fx-background-color: #f0f0f0;"/>
+    </GridPane>
+
+    <Separator/>
+
+    <Label text="Change Password" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+
+    <GridPane hgap="10" vgap="10">
+        <columnConstraints>
+            <ColumnConstraints minWidth="120" prefWidth="120"/>
+            <ColumnConstraints minWidth="200" prefWidth="200"/>
+        </columnConstraints>
+
+        <Label text="Current Password:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <PasswordField fx:id="currentPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+        <Label text="New Password:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <PasswordField fx:id="newPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+        <Label text="Confirm:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <PasswordField fx:id="confirmPasswordField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+    </GridPane>
+
+    <Label fx:id="errorLabel" style="-fx-font-size: 12px;"/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="Save Changes" onAction="#handleChangePassword" 
+                style="-fx-background-color: #28a745; -fx-text-fill: white;" 
+                prefWidth="120"/>
+        <Button text="Close" onAction="#handleClose" 
+                style="-fx-background-color: #6c757d; -fx-text-fill: white;" 
+                prefWidth="100"/>
+    </HBox>
+</VBox>
