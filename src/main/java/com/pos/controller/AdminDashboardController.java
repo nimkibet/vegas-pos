@@ -631,27 +631,31 @@ public class AdminDashboardController {
     @FXML
     private void handleLogout() {
         try {
-            Stage currentStage = (Stage) contentArea.getScene().getWindow();
-            currentStage.close();
+            // 1. Get the existing stage (Do NOT close it)
+            Stage stage = (Stage) contentArea.getScene().getWindow();
 
+            // 2. Load the login screen
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/login.fxml"));
             Parent root = loader.load();
-            
-            LoginController loginController = loader.getController();
-            loginController.clearFields();
-            
-            Stage newStage = new Stage();
-            newStage.setTitle("Vegas POS - Login");
-            newStage.setScene(new Scene(root));
-            newStage.setWidth(420);
-            newStage.setHeight(520);
-            newStage.setResizable(false);
-            newStage.centerOnScreen();
-            newStage.show();
 
+            // 3. CRITICAL: Pass the stage back to the new LoginController!
+            LoginController loginController = loader.getController();
+            loginController.setPrimaryStage(stage);
+            loginController.clearFields();
+
+            // 4. Swap the scene on the existing stage (NO new Stage())
+            stage.setScene(new Scene(root));
+            stage.setTitle("Vegas POS - Login");
+            stage.setWidth(420);
+            stage.setHeight(520);
+            stage.setResizable(false);
+            stage.centerOnScreen();
+            stage.show();
+
+            // 5. Clear auth state
             authService.logout();
 
-            logger.info("User logged out - stage completely recreated");
+            logger.info("User logged out - scene swapped on existing stage");
         } catch (Exception e) {
             logger.error("Error loading login screen", e);
         }
