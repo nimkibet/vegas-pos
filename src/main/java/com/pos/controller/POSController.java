@@ -1091,8 +1091,6 @@ public class POSController {
             showError("Error returning to login: " + e.getMessage());
         }
     }
-        }
-    }
     
     /**
      * Handle refresh
