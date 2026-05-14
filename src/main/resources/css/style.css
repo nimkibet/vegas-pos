@@ -11,13 +11,16 @@
    ======================================== */
 
 .button {
-    -fx-background-radius: 4px;
+    -fx-min-width: 120px;
+    -fx-min-height: 40px;
+    -fx-padding: 10px 20px;
+    -fx-background-radius: 5px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
     -fx-background-color: #e9ecef;
     -fx-text-fill: #212529;
     -fx-border: none;
-    -fx-cursor: hand;
     -fx-font-size: 14px;
-    -fx-padding: 8px 16px;
 }
 
 .button:hover {
@@ -26,6 +29,17 @@
 
 .button:pressed {
     -fx-background-color: #ced4da;
+}
+
+/* Header action — launch POS from admin dashboard */
+.action-btn {
+    -fx-background-color: #2f855a;
+    -fx-text-fill: white;
+    -fx-background-radius: 5px;
+}
+
+.action-btn:hover {
+    -fx-background-color: #276749;
 }
 
 /* Primary Button - Green */
@@ -152,7 +166,12 @@
 }
 
 .table-view .table-row-cell:selected {
-    -fx-background-color: #e8f5e9;
+    -fx-background-color: #2196F3;
+    -fx-table-cell-border-color: transparent;
+}
+
+.table-view .table-row-cell:selected .text {
+    -fx-fill: white;
 }
 
 /* ========================================

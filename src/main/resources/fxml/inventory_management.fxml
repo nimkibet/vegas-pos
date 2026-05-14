@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<TabPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+         fx:id="inventoryTabPane"
+         fx:controller="com.pos.controller.InventoryController"
+         stylesheets="@../css/style.css"
+         tabClosingPolicy="UNAVAILABLE"
+         VBox.vgrow="ALWAYS">
+
+    <Tab text="Product List">
+        <VBox spacing="15" style="-fx-padding: 20;">
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <TextField fx:id="productSearchField" promptText="Search products..."
+                           style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" HBox.hgrow="SOMETIMES"/>
+                <Button text="Search" onAction="#handleProductSearch" styleClass="btn-primary"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="Add New Product" onAction="#handleAddNewProduct" styleClass="btn-success"/>
+                <Button text="Refresh" onAction="#loadAllProducts" styleClass="button"/>
+            </HBox>
+
+            <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                <columns>
+                    <TableColumn text="Barcode" fx:id="colProductBarcode" prefWidth="120"/>
+                    <TableColumn text="Product Name" fx:id="colProductName" prefWidth="180"/>
+                    <TableColumn text="Category" fx:id="colProductCategory" prefWidth="100"/>
+                    <TableColumn text="Retail Price" fx:id="colProductRetail" prefWidth="100"/>
+                    <TableColumn text="Wholesale Price" fx:id="colProductWholesale" prefWidth="110"/>
+                    <TableColumn text="Stock" fx:id="colProductStock" prefWidth="70"/>
+                    <TableColumn text="Supplier" fx:id="colProductSupplier" prefWidth="100"/>
+                    <TableColumn text="Status" fx:id="colProductStatus" prefWidth="80"/>
+                </columns>
+            </TableView>
+
+            <HBox spacing="10">
+                <Button text="Edit Selected" onAction="#handleEditProduct" styleClass="btn-primary"/>
+                <Button text="Delete Selected" onAction="#handleDeleteProduct" styleClass="btn-danger"/>
+                <Button text="Adjust Stock" onAction="#handleAdjustStock" styleClass="btn-warning"/>
+            </HBox>
+        </VBox>
+    </Tab>
+
+    <Tab text="Manage Product">
+        <ScrollPane fitToWidth="true" style="-fx-background: transparent; -fx-background-color: transparent;">
+            <fx:include source="product_form.fxml" fx:id="productForm"/>
+        </ScrollPane>
+    </Tab>
+</TabPane>

@@ -20,12 +20,14 @@ import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import javafx.util.Callback;
@@ -242,6 +244,66 @@ public class POSController {
         // Setup cart table columns
         colItemName.setCellValueFactory(new PropertyValueFactory<>("productName"));
         colQuantity.setCellValueFactory(new PropertyValueFactory<>("quantity"));
+        colQuantity.setCellFactory(col -> new TableCell<SaleItem, Integer>() {
+            private final Button plusBtn = new Button("+");
+            private final Button minusBtn = new Button("-");
+            private final Label qtyLabel = new Label();
+            private final HBox pane = new HBox(5, minusBtn, qtyLabel, plusBtn);
+
+            {
+                pane.setAlignment(Pos.CENTER);
+                plusBtn.setStyle("-fx-min-width: 30px; -fx-cursor: hand;");
+                minusBtn.setStyle("-fx-min-width: 30px; -fx-cursor: hand;");
+
+                plusBtn.setOnAction(e -> {
+                    int idx = getIndex();
+                    TableView<SaleItem> table = getTableView();
+                    if (idx < 0 || idx >= table.getItems().size()) {
+                        return;
+                    }
+                    SaleItem item = table.getItems().get(idx);
+                    int newQty = item.getQuantity() + 1;
+                    Product p = item.getProduct();
+                    if (p != null && newQty > p.getStockQuantity()) {
+                        showError("Insufficient stock");
+                        return;
+                    }
+                    item.setQuantity(newQty);
+                    item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+                    table.refresh();
+                    updateCartTotals();
+                });
+
+                minusBtn.setOnAction(e -> {
+                    int idx = getIndex();
+                    TableView<SaleItem> table = getTableView();
+                    if (idx < 0 || idx >= table.getItems().size()) {
+                        return;
+                    }
+                    SaleItem item = table.getItems().get(idx);
+                    if (item.getQuantity() > 1) {
+                        item.setQuantity(item.getQuantity() - 1);
+                        item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+                        table.refresh();
+                    } else {
+                        table.getItems().remove(item);
+                    }
+                    updateCartTotals();
+                });
+            }
+
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setGraphic(null);
+                } else {
+                    SaleItem currentItem = getTableRow().getItem();
+                    qtyLabel.setText(String.valueOf(currentItem.getQuantity()));
+                    setGraphic(pane);
+                }
+            }
+        });
         colUnitPrice.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(
                 formatCurrency(cellData.getValue().getUnitPrice())));

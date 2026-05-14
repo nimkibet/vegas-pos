@@ -24,7 +24,7 @@ public class DatabaseManagerTest {
     @BeforeAll
     public static void setup() throws Exception {
         dbManager = DatabaseManager.getInstance();
-        // Database schema is auto-initialized on getInstance() call
+        dbManager.initialize();
         // Generate unique barcode for each test run to avoid conflicts
         uniqueTestBarcode = "TEST" + UUID.randomUUID().toString().replace("-", "").substring(0, 13);
     }

@@ -10,10 +10,15 @@
     
     <!-- Top Header -->
     <top>
-        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 15 20;" alignment="CENTER_LEFT">
-            <Label text="Admin Dashboard" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;" />
+        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 15 20;" alignment="CENTER_LEFT" maxWidth="Infinity">
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Label text="⚙️" style="-fx-font-size: 24; -fx-text-fill: white;" />
+                <Label text="Admin Dashboard" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;" />
+            </HBox>
             <Region HBox.hgrow="ALWAYS" />
-            <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />
+            <HBox spacing="20" alignment="CENTER_RIGHT">
+                <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />
+            </HBox>
         </HBox>
     </top>
     

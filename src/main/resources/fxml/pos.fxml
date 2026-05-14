@@ -17,7 +17,7 @@
     
     <!-- Top Header Bar -->
     <top>
-        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 12 20;">
+        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 12 20;" alignment="CENTER_LEFT" maxWidth="Infinity">
             <!-- Logo/Title -->
             <HBox spacing="10" alignment="CENTER_LEFT">
                 <Label text="🛒" style="-fx-font-size: 24; -fx-text-fill: white;" />
@@ -107,18 +107,23 @@
             <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 15;" VBox.vgrow="ALWAYS">
                 
                 <!-- Panel Header -->
-                <StackPane>
+                <HBox spacing="15" alignment="CENTER_LEFT">
                     <Label text="Current Sale" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
-                    <HBox alignment="CENTER_RIGHT" StackPane.alignment="CENTER_RIGHT">
-                        <Button text="Hold Cart" onAction="#handleHoldCart" style="-fx-font-size: 12; -fx-padding: 6 12;" />
-                        <Button text="Recall Cart" onAction="#handleRecallCart" style="-fx-font-size: 12; -fx-padding: 6 12;" />
-                        <Button text="Remove" onAction="#handleRemoveFromCart" styleClass="button" />
-                        <Button text="Clear Cart" onAction="#handleClearCart" styleClass="btn-danger" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <HBox spacing="15" alignment="CENTER" HBox.hgrow="ALWAYS" maxWidth="Infinity">
+                        <Button text="Hold Cart" onAction="#handleHoldCart" style="-fx-font-size: 12; -fx-padding: 6 12;"
+                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <Button text="Recall Cart" onAction="#handleRecallCart" style="-fx-font-size: 12; -fx-padding: 6 12;"
+                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <Button text="Remove" onAction="#handleRemoveFromCart" styleClass="button"
+                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <Button text="Clear Cart" onAction="#handleClearCart" styleClass="btn-danger"
+                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
                     </HBox>
-                </StackPane>
+                </HBox>
                 
                 <!-- Cart Table -->
-                <TableView fx:id="cartTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                <TableView fx:id="cartTable" VBox.vgrow="ALWAYS" minHeight="0" maxHeight="Infinity" styleClass="table-view">
                     <columns>
                         <TableColumn text="Item" fx:id="colItemName" prefWidth="200" />
                         <TableColumn text="Qty" fx:id="colQuantity" prefWidth="60" />
@@ -167,13 +172,16 @@
                     </HBox>
                 </VBox>
                 
-                <!-- Checkout Button -->
-                <Button text="CHECKOUT" onAction="#handleCheckout" prefHeight="50" styleClass="btn-primary" />
-                
-                <!-- Printer Controls -->
-                <HBox spacing="10">
-                    <Button text="Print Receipt" onAction="#handlePrintReceipt" styleClass="button" />
-                    <Button text="Open Cash Drawer" onAction="#handleOpenDrawer" styleClass="button" />
+                <!-- Checkout & printer actions -->
+                <HBox spacing="15" alignment="CENTER">
+                    <Button text="CHECKOUT" onAction="#handleCheckout" prefHeight="50" styleClass="btn-primary"
+                            HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                </HBox>
+                <HBox spacing="15" alignment="CENTER">
+                    <Button text="Print Receipt" onAction="#handlePrintReceipt" styleClass="button"
+                            HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                    <Button text="Open Cash Drawer" onAction="#handleOpenDrawer" styleClass="button"
+                            HBox.hgrow="ALWAYS" maxWidth="Infinity" />
                 </HBox>
             </VBox>
         </VBox>

@@ -4,59 +4,98 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
-      fx:controller="com.pos.controller.ProductFormController"
-      style="-fx-padding: 20; -fx-spacing: 15; -fx-background-color: #f8f9fa;">
-    
-    <Label fx:id="formTitle" text="Add New Product" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
-    
-    <GridPane hgap="15" vgap="10">
-        <columnConstraints>
-            <ColumnConstraints minWidth="120" />
-            <ColumnConstraints hgrow="ALWAYS" prefWidth="200" />
-        </columnConstraints>
-        
-        <Label text="Barcode:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="barcodeField" GridPane.columnIndex="1" GridPane.rowIndex="0" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Product Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="nameField" GridPane.columnIndex="1" GridPane.rowIndex="1" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Category:" GridPane.columnIndex="0" GridPane.rowIndex="2" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="categoryField" GridPane.columnIndex="1" GridPane.rowIndex="2" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Retail Price:" GridPane.columnIndex="0" GridPane.rowIndex="3" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="retailPriceField" GridPane.columnIndex="1" GridPane.rowIndex="3" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Wholesale Price:" GridPane.columnIndex="0" GridPane.rowIndex="4" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="wholesalePriceField" GridPane.columnIndex="1" GridPane.rowIndex="4" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Stock Quantity:" GridPane.columnIndex="0" GridPane.rowIndex="5" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="stockField" GridPane.columnIndex="1" GridPane.rowIndex="5" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Min Stock Level:" GridPane.columnIndex="0" GridPane.rowIndex="6" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="minStockField" GridPane.columnIndex="1" GridPane.rowIndex="6" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Description:" GridPane.columnIndex="0" GridPane.rowIndex="7" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="descriptionField" GridPane.columnIndex="1" GridPane.rowIndex="7" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-        
-        <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="8" style="-fx-font-size: 13; -fx-text-fill: #4a5568;" />
-        <TextField fx:id="supplierField" GridPane.columnIndex="1" GridPane.rowIndex="8" 
-                   style="-fx-font-size: 13; -fx-padding: 10;" />
-    </GridPane>
-    
-    <Label fx:id="errorLabel" style="-fx-font-size: 12; -fx-text-fill: #e53e3e;" />
-    
-    <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10 0 0 0;">
-        <Button text="Cancel" onAction="#handleCancel" styleClass="button" />
-        <Button text="Save Product" onAction="#handleSave" styleClass="btn-primary" />
-    </HBox>
-</VBox>
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.pos.controller.ProductFormController"
+            stylesheets="@../css/style.css">
+    <padding>
+        <Insets top="24" right="28" bottom="24" left="28"/>
+    </padding>
+
+    <top>
+        <Label text="Product Management" style="-fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
+    </top>
+
+    <center>
+        <HBox spacing="40" alignment="TOP_LEFT" BorderPane.alignment="CENTER" maxWidth="Infinity">
+            <VBox spacing="14" HBox.hgrow="ALWAYS" maxWidth="Infinity" style="-fx-min-width: 280;">
+                <Label text="Basic Details" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
+                <VBox spacing="6">
+                    <Label text="Barcode" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <TextField fx:id="barcodeField" promptText="Scan or enter barcode" HBox.hgrow="ALWAYS"
+                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
+                        <Button text="Generate" onAction="#handleGenerateBarcode" styleClass="button"/>
+                    </HBox>
+                </VBox>
+                <VBox spacing="6">
+                    <Label text="Name" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <TextField fx:id="nameField" promptText="Product name"
+                               style="-fx-font-size: 13; -fx-padding: 10;"/>
+                </VBox>
+                <VBox spacing="6">
+                    <Label text="Category" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <ComboBox fx:id="categoryCombo" editable="true" promptText="Select or type category"
+                              style="-fx-font-size: 13;"/>
+                </VBox>
+            </VBox>
+
+            <VBox spacing="14" HBox.hgrow="ALWAYS" maxWidth="Infinity" style="-fx-min-width: 280;">
+                <Label text="Pricing &amp; Stock" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
+                <VBox spacing="6">
+                    <Label text="Retail Price" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <TextField fx:id="retailPriceField" promptText="0.00"
+                               style="-fx-font-size: 13; -fx-padding: 10;"/>
+                </VBox>
+                <VBox spacing="6">
+                    <Label text="Wholesale Price" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <TextField fx:id="wholesalePriceField" promptText="0.00"
+                               style="-fx-font-size: 13; -fx-padding: 10;"/>
+                </VBox>
+
+                <Separator style="-fx-padding: 8 0;"/>
+
+                <Label text="Bulk / Box" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
+                <CheckBox fx:id="hasBulkCheckbox" text="Has Bulk/Box Option?" style="-fx-font-size: 13;"/>
+
+                <VBox fx:id="bulkFieldsContainer" spacing="12" visible="false" managed="false">
+                    <VBox spacing="6">
+                        <Label text="Box Barcode" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                        <TextField fx:id="bulkBarcodeField" promptText="Case / outer barcode"
+                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
+                    </VBox>
+                    <VBox spacing="6">
+                        <Label text="Box Price" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                        <TextField fx:id="bulkPriceField" promptText="0.00"
+                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
+                    </VBox>
+                    <VBox spacing="6">
+                        <Label text="Pieces per Box" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                        <TextField fx:id="piecesPerBoxField" promptText="e.g. 12"
+                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
+                    </VBox>
+                    <VBox spacing="6">
+                        <Label text="Boxes Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                        <TextField fx:id="boxesReceivedField" promptText="0"
+                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
+                    </VBox>
+                </VBox>
+
+                <HBox fx:id="looseStockContainer" spacing="12" alignment="CENTER_LEFT">
+                    <Label text="Loose Pieces Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <TextField fx:id="loosePiecesField" promptText="0" prefWidth="120"
+                               style="-fx-font-size: 13; -fx-padding: 10;"/>
+                </HBox>
+            </VBox>
+        </HBox>
+    </center>
+
+    <bottom>
+        <VBox spacing="12" BorderPane.alignment="CENTER">
+            <Label fx:id="errorLabel" style="-fx-font-size: 12; -fx-text-fill: #e53e3e;"/>
+            <HBox alignment="CENTER_RIGHT" spacing="12">
+                <Button text="Clear" onAction="#handleClear" styleClass="button"/>
+                <Button text="Save Product" onAction="#handleSave" styleClass="btn-primary"/>
+            </HBox>
+        </VBox>
+    </bottom>
+</BorderPane>

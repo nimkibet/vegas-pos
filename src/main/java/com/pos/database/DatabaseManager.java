@@ -194,9 +194,14 @@ public class DatabaseManager {
                     is_active INTEGER NOT NULL DEFAULT 1,
                     is_synced INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    bulk_barcode TEXT,
+                    bulk_price REAL DEFAULT 0.0,
+                    pieces_per_bulk INTEGER DEFAULT 1
                 )
             """);
+            
+            ensureProductBulkColumns(stmt);
             
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS sales (
@@ -308,6 +313,28 @@ public class DatabaseManager {
             // This avoids holding the DB lock during seeding
             
             logger.info("Database schema created successfully");
+        }
+    }
+    
+    /**
+     * Adds bulk/box columns to products when upgrading an existing database
+     * (CREATE TABLE IF NOT EXISTS does not add new columns to old tables).
+     */
+    private void ensureProductBulkColumns(Statement stmt) {
+        String[] alters = {
+            "ALTER TABLE products ADD COLUMN bulk_barcode TEXT",
+            "ALTER TABLE products ADD COLUMN bulk_price REAL DEFAULT 0.0",
+            "ALTER TABLE products ADD COLUMN pieces_per_bulk INTEGER DEFAULT 1"
+        };
+        for (String sql : alters) {
+            try {
+                stmt.execute(sql);
+            } catch (SQLException e) {
+                String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                if (!msg.contains("duplicate column")) {
+                    logger.warn("Could not apply migration: {}", e.getMessage());
+                }
+            }
         }
     }
     
@@ -622,6 +649,23 @@ public class DatabaseManager {
         return Optional.empty();
     }
 
+    public Optional<Product> findProductByBulkBarcode(String barcode) throws SQLException {
+        String sql = "SELECT * FROM products WHERE bulk_barcode = ?";
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, barcode);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapResultSetToProduct(rs));
+                }
+            }
+        }
+        
+        return Optional.empty();
+    }
+
     public List<Product> getAllProducts() throws SQLException {
         List<Product> products = new ArrayList<>();
         String sql = "SELECT * FROM products WHERE is_active = 1 ORDER BY name";
@@ -698,9 +742,10 @@ public class DatabaseManager {
 
     public void insertProduct(Product product) throws SQLException {
         String sql = """
-            INSERT INTO products (id, barcode, name, description, category, retail_price, 
-            wholesale_price, stock_quantity, min_stock_level, image_path, supplier, status, is_active, is_synced, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO products (id, barcode, name, description, category, retail_price,
+            wholesale_price, stock_quantity, min_stock_level, image_path, supplier, status, is_active, is_synced, created_at, updated_at,
+            bulk_barcode, bulk_price, pieces_per_bulk)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
         
         try (Connection conn = connect();
@@ -721,6 +766,11 @@ public class DatabaseManager {
             pstmt.setInt(14, product.isSynced() ? 1 : 0);
             pstmt.setString(15, product.getCreatedAt().format(DATE_TIME_FORMATTER));
             pstmt.setString(16, product.getUpdatedAt().format(DATE_TIME_FORMATTER));
+            pstmt.setString(17, product.getBulkBarcode());
+            BigDecimal bulkPrice = product.getBulkPrice() != null ? product.getBulkPrice() : BigDecimal.ZERO;
+            pstmt.setBigDecimal(18, bulkPrice);
+            int piecesPerBulk = product.getPiecesPerBulk() > 0 ? product.getPiecesPerBulk() : 1;
+            pstmt.setInt(19, piecesPerBulk);
             
             pstmt.executeUpdate();
             conn.commit();
@@ -731,7 +781,8 @@ public class DatabaseManager {
         String sql = """
             UPDATE products SET barcode = ?, name = ?, description = ?, category = ?,
             retail_price = ?, wholesale_price = ?, stock_quantity = ?, min_stock_level = ?,
-            image_path = ?, supplier = ?, status = ?, is_active = ?, is_synced = ?, updated_at = ? WHERE id = ?
+            image_path = ?, supplier = ?, status = ?, is_active = ?, is_synced = ?,
+            bulk_barcode = ?, bulk_price = ?, pieces_per_bulk = ?, updated_at = ? WHERE id = ?
         """;
         
         try (Connection conn = connect();
@@ -749,8 +800,13 @@ public class DatabaseManager {
             pstmt.setString(11, product.getStatus() != null ? product.getStatus() : "APPROVED");
             pstmt.setInt(12, product.isActive() ? 1 : 0);
             pstmt.setInt(13, product.isSynced() ? 1 : 0);
-            pstmt.setString(14, LocalDateTime.now().format(DATE_TIME_FORMATTER));
-            pstmt.setString(15, product.getId());
+            pstmt.setString(14, product.getBulkBarcode());
+            BigDecimal bulkPrice = product.getBulkPrice() != null ? product.getBulkPrice() : BigDecimal.ZERO;
+            pstmt.setBigDecimal(15, bulkPrice);
+            int piecesPerBulk = product.getPiecesPerBulk() > 0 ? product.getPiecesPerBulk() : 1;
+            pstmt.setInt(16, piecesPerBulk);
+            pstmt.setString(17, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+            pstmt.setString(18, product.getId());
             
             pstmt.executeUpdate();
             conn.commit();
@@ -768,6 +824,18 @@ public class DatabaseManager {
             
             pstmt.executeUpdate();
             conn.commit();
+        }
+    }
+    
+    void updateProductStock(Connection conn, String productId, int quantityDelta) throws SQLException {
+        String sql = "UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?";
+        
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, quantityDelta);
+            pstmt.setString(2, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+            pstmt.setString(3, productId);
+            
+            pstmt.executeUpdate();
         }
     }
     
@@ -854,11 +922,7 @@ public class DatabaseManager {
             }
             
             for (SaleItem item : sale.getItems()) {
-                Optional<Product> productOpt = findProductById(item.getProductId());
-                if (productOpt.isPresent()) {
-                    Product product = productOpt.get();
-                    updateProductStock(product.getId(), product.getStockQuantity() - item.getQuantity());
-                }
+                updateProductStock(conn, item.getProductId(), -item.getQuantity());
             }
             
             conn.commit();
@@ -1089,35 +1153,46 @@ public class DatabaseManager {
     }
 
     private Product mapResultSetToProduct(ResultSet rs) throws SQLException {
-        String prodStatus = rs.getString("status");
-        if (prodStatus == null) {
-            prodStatus = "APPROVED";
-        }
+        Product p = new Product();
+        
+        p.setId(rs.getString("id"));
+        p.setBarcode(rs.getString("barcode"));
+        p.setName(rs.getString("name"));
+        p.setDescription(rs.getString("description"));
+        p.setCategory(rs.getString("category"));
         
         String retailPriceStr = rs.getString("retail_price");
         String wholesalePriceStr = rs.getString("wholesale_price");
+        p.setRetailPrice(retailPriceStr != null ? new BigDecimal(retailPriceStr) : BigDecimal.ZERO);
+        p.setWholesalePrice(wholesalePriceStr != null ? new BigDecimal(wholesalePriceStr) : BigDecimal.ZERO);
         
-        BigDecimal retailPrice = retailPriceStr != null ? new BigDecimal(retailPriceStr) : BigDecimal.ZERO;
-        BigDecimal wholesalePrice = wholesalePriceStr != null ? new BigDecimal(wholesalePriceStr) : BigDecimal.ZERO;
+        p.setStockQuantity(rs.getInt("stock_quantity"));
+        p.setMinStockLevel(rs.getInt("min_stock_level"));
+        p.setImagePath(rs.getString("image_path"));
+        p.setSupplier(rs.getString("supplier"));
         
-        return new Product(
-            rs.getString("id"),
-            rs.getString("barcode"),
-            rs.getString("name"),
-            rs.getString("description"),
-            rs.getString("category"),
-            retailPrice,
-            wholesalePrice,
-            rs.getInt("stock_quantity"),
-            rs.getInt("min_stock_level"),
-            rs.getString("image_path"),
-            rs.getString("supplier"),
-            prodStatus,
-            rs.getInt("is_active") == 1,
-            rs.getInt("is_synced") == 1,
-            LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER),
-            LocalDateTime.parse(rs.getString("updated_at"), DATE_TIME_FORMATTER)
-        );
+        String prodStatus = rs.getString("status");
+        p.setStatus(prodStatus != null ? prodStatus : "APPROVED");
+        p.setActive(rs.getInt("is_active") == 1);
+        p.setSynced(rs.getInt("is_synced") == 1);
+        p.setCreatedAt(LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER));
+        p.setUpdatedAt(LocalDateTime.parse(rs.getString("updated_at"), DATE_TIME_FORMATTER));
+        
+        p.setBulkBarcode(rs.getString("bulk_barcode"));
+        BigDecimal bulkPriceBd = rs.getBigDecimal("bulk_price");
+        if (bulkPriceBd == null || rs.wasNull()) {
+            p.setBulkPrice(BigDecimal.ZERO);
+        } else {
+            p.setBulkPrice(bulkPriceBd);
+        }
+        int piecesPerBulk = rs.getInt("pieces_per_bulk");
+        if (rs.wasNull() || piecesPerBulk <= 0) {
+            p.setPiecesPerBulk(1);
+        } else {
+            p.setPiecesPerBulk(piecesPerBulk);
+        }
+        
+        return p;
     }
 
     private Sale mapResultSetToSale(ResultSet rs) throws SQLException {

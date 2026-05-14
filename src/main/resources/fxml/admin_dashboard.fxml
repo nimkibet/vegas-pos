@@ -11,7 +11,7 @@
     
     <!-- Top Header -->
     <top>
-        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 15 20;" alignment="CENTER_LEFT">
+        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 15 20;" alignment="CENTER_LEFT" maxWidth="Infinity">
             <HBox spacing="15" alignment="CENTER_LEFT">
                 <Label text="⚙️" style="-fx-font-size: 24; -fx-text-fill: white;" />
                 <Label text="Backoffice Dashboard" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;" />
@@ -19,6 +19,7 @@
             <Region HBox.hgrow="ALWAYS" />
             <HBox spacing="20" alignment="CENTER_RIGHT">
                 <Label fx:id="userLabel" text="User: Admin" style="-fx-font-size: 13; -fx-text-fill: white;" />
+                <Button text="Launch POS Terminal" onAction="#switchToPOS" styleClass="action-btn" />
                 <Button text="Back to POS" onAction="#handleBackToPOS" style="-fx-font-size: 12; -fx-padding: 8 16; -fx-background-color: #2f855a; -fx-text-fill: white; -fx-background-radius: 5;" />
                 <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />
             </HBox>
@@ -31,15 +32,19 @@
             <VBox spacing="10" VBox.vgrow="ALWAYS">
                 <Button fx:id="navProductMgmt" text="📦 Product Management" onAction="#showProductManagement" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;" 
+                        maxWidth="Infinity"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
                 <Button fx:id="navStockVerify" text="🔍 Stock Verification" onAction="#showStockVerification" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        maxWidth="Infinity"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
                 <Button fx:id="navApprovalQueue" text="✓ Approval Queue" onAction="#showApprovalQueue" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        maxWidth="Infinity"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
                 <Button fx:id="navAnalytics" text="📊 Analytics" onAction="#showAnalytics" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        maxWidth="Infinity"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
             </VBox>
             
@@ -57,38 +62,8 @@
     <!-- Center Content Area -->
     <center>
         <StackPane fx:id="contentArea">
-            <!-- Product Management View -->
-            <VBox fx:id="productMgmtView" style="-fx-padding: 20; -fx-spacing: 15;" visible="true">
-                <Label text="Product Management" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
-                
-                <HBox spacing="15" alignment="CENTER_LEFT">
-                    <TextField fx:id="productSearchField" promptText="Search products..." 
-                               style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" />
-                    <Button text="Search" onAction="#handleProductSearch" styleClass="btn-primary" />
-                    <Region HBox.hgrow="ALWAYS" />
-                    <Button text="+ Add New Product" onAction="#handleAddProduct" styleClass="btn-success" />
-                    <Button text="Refresh" onAction="#loadAllProducts" styleClass="button" />
-                </HBox>
-                
-                <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
-                    <columns>
-                        <TableColumn text="Barcode" fx:id="colProductBarcode" prefWidth="120" />
-                        <TableColumn text="Product Name" fx:id="colProductName" prefWidth="180" />
-                        <TableColumn text="Category" fx:id="colProductCategory" prefWidth="100" />
-                        <TableColumn text="Retail Price" fx:id="colProductRetail" prefWidth="100" />
-                        <TableColumn text="Wholesale Price" fx:id="colProductWholesale" prefWidth="110" />
-                        <TableColumn text="Stock" fx:id="colProductStock" prefWidth="70" />
-                        <TableColumn text="Supplier" fx:id="colProductSupplier" prefWidth="100" />
-                        <TableColumn text="Status" fx:id="colProductStatus" prefWidth="80" />
-                    </columns>
-                </TableView>
-                
-                <HBox spacing="10">
-                    <Button text="Edit Selected" onAction="#handleEditProduct" styleClass="btn-primary" />
-                    <Button text="Delete Selected" onAction="#handleDeleteProduct" styleClass="btn-danger" />
-                    <Button text="Adjust Stock" onAction="#handleAdjustStock" styleClass="btn-warning" />
-                </HBox>
-            </VBox>
+            <!-- Product Management (inventory + embedded product form) -->
+            <fx:include fx:id="inventoryManagement" source="inventory_management.fxml" visible="true" />
             
             <!-- Stock Verification View -->
             <VBox fx:id="stockVerifyView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">

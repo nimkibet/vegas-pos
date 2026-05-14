@@ -27,6 +27,11 @@ public class Product {
     private boolean isSynced;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // Bulk/Box fields
+    private String bulkBarcode;
+    private BigDecimal bulkPrice;
+    private int piecesPerBulk = 1;
 
     /**
      * Default constructor - generates new UUID
@@ -39,6 +44,8 @@ public class Product {
         this.minStockLevel = 0;
         this.retailPrice = BigDecimal.ZERO;
         this.wholesalePrice = BigDecimal.ZERO;
+        this.bulkPrice = BigDecimal.ZERO;
+        this.piecesPerBulk = 1;
         this.status = "APPROVED";
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -173,11 +180,11 @@ public class Product {
     public String getStatus() {
         return status;
     }
-    
+
     public void setStatus(String status) {
         this.status = status;
     }
-    
+
     public boolean isActive() {
         return isActive;
     }
@@ -208,6 +215,32 @@ public class Product {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    
+    // Bulk/Box field getters and setters
+    
+    public String getBulkBarcode() {
+        return bulkBarcode;
+    }
+
+    public void setBulkBarcode(String bulkBarcode) {
+        this.bulkBarcode = bulkBarcode;
+    }
+
+    public BigDecimal getBulkPrice() {
+        return bulkPrice;
+    }
+
+    public void setBulkPrice(BigDecimal bulkPrice) {
+        this.bulkPrice = bulkPrice;
+    }
+
+    public int getPiecesPerBulk() {
+        return piecesPerBulk;
+    }
+
+    public void setPiecesPerBulk(int piecesPerBulk) {
+        this.piecesPerBulk = piecesPerBulk;
     }
 
     /**
