@@ -31,6 +31,13 @@
     -fx-background-color: #ced4da;
 }
 
+/* Admin dashboard — sidebar nav fills panel width */
+.nav-button {
+    -fx-max-width: infinity;
+    -fx-pref-width: 200px;
+    -fx-alignment: CENTER_LEFT;
+}
+
 /* Header action — launch POS from admin dashboard */
 .action-btn {
     -fx-background-color: #2f855a;

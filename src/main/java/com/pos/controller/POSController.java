@@ -2,6 +2,7 @@ package com.pos.controller;
 
 import com.pos.database.DatabaseManager;
 import com.pos.entity.Product;
+import com.pos.entity.ProductBarcodeMatch;
 import com.pos.util.BrandingConstants;
 import com.pos.entity.Sale;
 import com.pos.entity.SaleItem;
@@ -27,7 +28,10 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import javafx.util.Callback;
@@ -38,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -89,6 +94,10 @@ public class POSController {
     // FXML components - Products Table
     @FXML
     private TableView<Product> productTable;
+    @FXML
+    private MenuItem contextMenuAddBoxItem;
+    @FXML
+    private Button addBoxButton;
     @FXML
     private TableColumn<Product, String> colBarcode;
     @FXML
@@ -254,6 +263,11 @@ public class POSController {
                 pane.setAlignment(Pos.CENTER);
                 plusBtn.setStyle("-fx-min-width: 30px; -fx-cursor: hand;");
                 minusBtn.setStyle("-fx-min-width: 30px; -fx-cursor: hand;");
+                plusBtn.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(plusBtn, Priority.ALWAYS);
+                minusBtn.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(minusBtn, Priority.ALWAYS);
+                pane.prefWidthProperty().bind(colQuantity.widthProperty());
 
                 plusBtn.setOnAction(e -> {
                     int idx = getIndex();
@@ -262,16 +276,7 @@ public class POSController {
                         return;
                     }
                     SaleItem item = table.getItems().get(idx);
-                    int newQty = item.getQuantity() + 1;
-                    Product p = item.getProduct();
-                    if (p != null && newQty > p.getStockQuantity()) {
-                        showError("Insufficient stock");
-                        return;
-                    }
-                    item.setQuantity(newQty);
-                    item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
-                    table.refresh();
-                    updateCartTotals();
+                    incrementCartLineQuantity(item);
                 });
 
                 minusBtn.setOnAction(e -> {
@@ -281,14 +286,7 @@ public class POSController {
                         return;
                     }
                     SaleItem item = table.getItems().get(idx);
-                    if (item.getQuantity() > 1) {
-                        item.setQuantity(item.getQuantity() - 1);
-                        item.setTotalPrice(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
-                        table.refresh();
-                    } else {
-                        table.getItems().remove(item);
-                    }
-                    updateCartTotals();
+                    decrementCartLineQuantity(item, table);
                 });
             }
 
@@ -314,6 +312,21 @@ public class POSController {
         // Use FilteredList for the table
         productTable.setItems(filteredProductList);
         cartTable.setItems(cartList);
+        
+        productTable.setRowFactory(tv -> {
+            TableRow<Product> row = new TableRow<>();
+            row.setOnMouseClicked(event -> handleProductTableRowMouseClicked(event, row));
+            return row;
+        });
+        
+        productTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) ->
+            updateProductTableBoxSaleActions(n));
+        ContextMenu productCm = productTable.getContextMenu();
+        if (productCm != null) {
+            productCm.setOnShowing(e -> updateProductTableBoxSaleActions(
+                productTable.getSelectionModel().getSelectedItem()));
+        }
+        updateProductTableBoxSaleActions(productTable.getSelectionModel().getSelectedItem());
         
         // Add keyboard listeners
         searchField.setOnKeyPressed(this::handleSearchKeyPress);
@@ -388,7 +401,14 @@ public class POSController {
             predicate = p -> true;
         } else {
             String lowerSearchTerm = searchTerm.toLowerCase().trim();
-            predicate = p -> p.getName().toLowerCase().contains(lowerSearchTerm);
+            predicate = p -> {
+                String n = p.getName() != null ? p.getName().toLowerCase() : "";
+                String bc = p.getBarcode() != null ? p.getBarcode().toLowerCase() : "";
+                String bbc = p.getBulkBarcode() != null ? p.getBulkBarcode().toLowerCase() : "";
+                return n.contains(lowerSearchTerm)
+                        || bc.contains(lowerSearchTerm)
+                        || bbc.contains(lowerSearchTerm);
+            };
         }
         
         filteredProductList.setPredicate(predicate);
@@ -467,11 +487,18 @@ public class POSController {
     private void processBarcode(String barcode) {
         javafx.application.Platform.runLater(() -> {
             try {
-                Optional<Product> productOpt = dbManager.findProductByBarcode(barcode);
+                Optional<ProductBarcodeMatch> matchOpt = dbManager.findProductByAnyBarcode(barcode);
                 
-                if (productOpt.isPresent()) {
-                    addToCart(productOpt.get(), 1);
-                    showSuccess("Added: " + productOpt.get().getName());
+                if (matchOpt.isPresent()) {
+                    ProductBarcodeMatch match = matchOpt.get();
+                    Product p = match.getProduct();
+                    if (match.isBulk()) {
+                        addBoxLineToCart(p);
+                        showSuccess("Added: Box of " + p.getName());
+                    } else {
+                        addToCart(p, 1);
+                        showSuccess("Added: " + p.getName());
+                    }
                     barcodeField.clear();
                 } else {
                     showQuickAddDialog(barcode);
@@ -603,6 +630,55 @@ public class POSController {
     }
     
     /**
+     * Double-click a search row: add as a single (unit) line using quantity from {@link #quantityField}.
+     */
+    private void handleProductTableRowMouseClicked(MouseEvent event, TableRow<Product> row) {
+        if (event.getClickCount() != 2 || event.getButton() != MouseButton.PRIMARY) {
+            return;
+        }
+        if (row.isEmpty()) {
+            return;
+        }
+        handleAddToCartFromTable(row.getItem());
+        event.consume();
+    }
+    
+    private boolean productSupportsManualBoxSale(Product product) {
+        if (product == null) {
+            return false;
+        }
+        String bulk = product.getBulkBarcode();
+        if (bulk == null || bulk.isBlank()) {
+            return false;
+        }
+        return product.getPiecesPerBulk() >= 2;
+    }
+    
+    private void updateProductTableBoxSaleActions(Product selected) {
+        boolean can = productSupportsManualBoxSale(selected);
+        if (contextMenuAddBoxItem != null) {
+            contextMenuAddBoxItem.setDisable(!can);
+            if (can && selected != null) {
+                contextMenuAddBoxItem.setText("Add box — " + ellipsize(selected.getName(), 42));
+            } else {
+                contextMenuAddBoxItem.setText("Add Box to Cart");
+            }
+        }
+        if (addBoxButton != null) {
+            addBoxButton.setDisable(selected == null || !can);
+            if (can && selected != null) {
+                addBoxButton.setText("Box: " + ellipsize(selected.getName(), 20));
+                addBoxButton.setTooltip(new Tooltip(
+                        "Add one full case (box of \"" + selected.getName() + "\"). "
+                                + "If the case price is not set yet, you will be asked once and it will be saved."));
+            } else {
+                addBoxButton.setText("Add Box");
+                addBoxButton.setTooltip(null);
+            }
+        }
+    }
+    
+    /**
      * Handle product table keyboard input
      * ENTER adds selected product to cart
      */
@@ -662,9 +738,14 @@ public class POSController {
         }
         
         try {
-            Optional<Product> productOpt = dbManager.findProductByBarcode(barcode);
-            if (productOpt.isPresent()) {
-                addToCart(productOpt.get(), 1);
+            Optional<ProductBarcodeMatch> matchOpt = dbManager.findProductByAnyBarcode(barcode);
+            if (matchOpt.isPresent()) {
+                ProductBarcodeMatch match = matchOpt.get();
+                if (match.isBulk()) {
+                    addBoxLineToCart(match.getProduct());
+                } else {
+                    addToCart(match.getProduct(), 1);
+                }
                 barcodeField.clear();
             } else {
                 showQuickAddDialog(barcode);
@@ -710,7 +791,52 @@ public class POSController {
     }
     
     /**
-     * Add product to cart
+     * Context menu: add selected row as single (unit) lines.
+     */
+    @FXML
+    private void handleContextAddSingleToCart() {
+        Product selected = productTable.getSelectionModel().getSelectedItem();
+        handleAddToCartFromTable(selected);
+    }
+    
+    /**
+     * Add selected product as box sale(s). Quantity field = number of boxes.
+     * Also used by the Quick Add "Add Box" button and context menu.
+     */
+    @FXML
+    private void handleAddBoxFromTable() {
+        Product selected = productTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showError("Please select a product");
+            return;
+        }
+        if (!productSupportsManualBoxSale(selected)) {
+            showError("This product has no box barcode or is not configured for box sales.");
+            return;
+        }
+        int per = selected.getPiecesPerBulk();
+        int boxes = 1;
+        try {
+            boxes = Integer.parseInt(quantityField.getText().trim());
+            if (boxes <= 0) {
+                boxes = 1;
+            }
+        } catch (NumberFormatException e) {
+            boxes = 1;
+        }
+        int unitsNeeded = boxes * per;
+        if (selected.getStockQuantity() < unitsNeeded) {
+            showError("Insufficient stock for " + boxes + " box(es) (need " + unitsNeeded + " units).");
+            return;
+        }
+        for (int i = 0; i < boxes; i++) {
+            addBoxLineToCart(selected);
+        }
+        requestBarcodeFocus();
+    }
+    
+    /**
+     * Add product to cart (unit / single lines only). Box scans use {@link #addBoxLineToCart(Product)}.
      */
     private void addToCart(Product product, int quantity) {
         if (product.getStockQuantity() < quantity) {
@@ -719,7 +845,7 @@ public class POSController {
         }
         
         Optional<SaleItem> existingItem = cartList.stream()
-            .filter(item -> item.getProductId().equals(product.getId()))
+            .filter(item -> item.getProductId().equals(product.getId()) && !item.isBoxSale())
             .findFirst();
         
         if (existingItem.isPresent()) {
@@ -729,16 +855,171 @@ public class POSController {
                 showError("Insufficient stock");
                 return;
             }
+            BigDecimal unit = pricingContext.getPrice(product);
+            item.setUnitPrice(unit);
             item.setQuantity(newQty);
-            item.recalculateTotal();
             cartTable.refresh();
         } else {
             BigDecimal price = pricingContext.getPrice(product);
             SaleItem newItem = new SaleItem(product, quantity, price);
+            newItem.setBoxSale(false);
             cartList.add(newItem);
         }
         
         updateCartTotals();
+    }
+    
+    /**
+     * Add one box sale: {@code piecesPerBulk} units at {@code bulkPrice} total for the line.
+     */
+    private void addBoxLineToCart(Product product) {
+        if (product == null) {
+            return;
+        }
+        String bulkBc = product.getBulkBarcode();
+        if (bulkBc == null || bulkBc.isBlank()) {
+            showError("This product has no box barcode configured.");
+            return;
+        }
+        int per = product.getPiecesPerBulk();
+        if (per < 2) {
+            showError("This product needs at least 2 pieces per box to sell by the case.");
+            return;
+        }
+        BigDecimal bulkPrice = product.getBulkPrice() != null ? product.getBulkPrice() : BigDecimal.ZERO;
+        if (bulkPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            if (!promptAndPersistBoxSellingPrice(product)) {
+                return;
+            }
+            bulkPrice = product.getBulkPrice() != null ? product.getBulkPrice() : BigDecimal.ZERO;
+            if (bulkPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                return;
+            }
+        }
+        if (product.getStockQuantity() < per) {
+            showError("Insufficient stock");
+            return;
+        }
+        
+        Optional<SaleItem> existingItem = cartList.stream()
+            .filter(item -> item.getProductId().equals(product.getId()) && item.isBoxSale())
+            .findFirst();
+        
+        if (existingItem.isPresent()) {
+            SaleItem item = existingItem.get();
+            int newQty = item.getQuantity() + per;
+            if (newQty > product.getStockQuantity()) {
+                showError("Insufficient stock");
+                return;
+            }
+            BigDecimal newTotal = item.getTotalPrice().add(bulkPrice);
+            BigDecimal unit = newTotal.divide(BigDecimal.valueOf(newQty), 6, RoundingMode.HALF_UP);
+            item.setUnitPrice(unit);
+            item.setQuantity(newQty);
+            int boxes = newQty / per;
+            item.setProductName(boxes + " Boxes - " + product.getName());
+            cartTable.refresh();
+        } else {
+            SaleItem newItem = new SaleItem();
+            newItem.setProductId(product.getId());
+            newItem.setProductName("Box of " + product.getName());
+            newItem.setProductBarcode(bulkBc);
+            newItem.setUnitPrice(bulkPrice.divide(BigDecimal.valueOf(per), 6, RoundingMode.HALF_UP));
+            newItem.setQuantity(per);
+            newItem.setProduct(product);
+            newItem.setBoxSale(true);
+            cartList.add(newItem);
+        }
+        
+        updateCartTotals();
+    }
+    
+    /**
+     * Ask cashier for one-case selling price, save on the product, and refresh the in-memory catalog.
+     */
+    private boolean promptAndPersistBoxSellingPrice(Product product) {
+        try {
+            Product p = dbManager.findProductById(product.getId()).orElse(product);
+            BigDecimal current = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
+            if (current.compareTo(BigDecimal.ZERO) > 0) {
+                product.setBulkPrice(current);
+                return true;
+            }
+            int per = p.getPiecesPerBulk();
+            if (per < 2) {
+                showError("Configure at least 2 pieces per box on this product before selling by the case.");
+                return false;
+            }
+            BigDecimal suggest = BigDecimal.ZERO;
+            if (p.getRetailPrice() != null) {
+                suggest = p.getRetailPrice().multiply(BigDecimal.valueOf(per));
+            }
+            TextInputDialog dlg = new TextInputDialog(
+                    suggest.compareTo(BigDecimal.ZERO) > 0 ? suggest.toPlainString() : "");
+            if (productTable != null && productTable.getScene() != null && productTable.getScene().getWindow() != null) {
+                dlg.initOwner(productTable.getScene().getWindow());
+            }
+            dlg.setTitle("Box selling price");
+            dlg.setHeaderText("Box of \"" + p.getName() + "\"\n"
+                    + "Enter the selling price for one full case (KSh). It is saved on this product for next time.");
+            dlg.setContentText("Price for one box:");
+            Optional<String> result = dlg.showAndWait();
+            if (result.isEmpty()) {
+                return false;
+            }
+            String raw = result.get().trim();
+            if (raw.isEmpty()) {
+                showError("Enter a price for the box.");
+                return false;
+            }
+            BigDecimal price = new BigDecimal(raw);
+            if (price.compareTo(BigDecimal.ZERO) <= 0) {
+                showError("Box price must be greater than zero.");
+                return false;
+            }
+            p.setBulkPrice(price);
+            dbManager.updateProduct(p);
+            Optional<Product> fresh = dbManager.findProductById(p.getId());
+            if (fresh.isPresent()) {
+                syncProductInMemoryLists(fresh.get());
+                product.setBulkPrice(fresh.get().getBulkPrice());
+            } else {
+                product.setBulkPrice(price);
+            }
+            return true;
+        } catch (NumberFormatException e) {
+            showError("Enter a valid number for the box price.");
+            return false;
+        } catch (SQLException e) {
+            logger.error("Could not save box selling price", e);
+            showError("Could not save box price: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    private void syncProductInMemoryLists(Product updated) {
+        if (updated == null || productList == null) {
+            return;
+        }
+        for (int i = 0; i < productList.size(); i++) {
+            if (productList.get(i).getId().equals(updated.getId())) {
+                productList.set(i, updated);
+                return;
+            }
+        }
+    }
+    
+    private static String ellipsize(String name, int maxChars) {
+        if (name == null) {
+            return "";
+        }
+        if (name.length() <= maxChars) {
+            return name;
+        }
+        if (maxChars <= 3) {
+            return "...";
+        }
+        return name.substring(0, maxChars - 3) + "...";
     }
     
     /**
@@ -846,6 +1127,8 @@ public class POSController {
             newItem.setQuantity(item.getQuantity());
             newItem.setUnitPrice(item.getUnitPrice());
             newItem.setTotalPrice(item.getTotalPrice());
+            newItem.setBoxSale(item.isBoxSale());
+            newItem.setProduct(item.getProduct());
             heldSale.addItem(newItem);
         }
         
@@ -1164,23 +1447,27 @@ public class POSController {
     }
     
     /**
-     * Handle backoffice button
+     * Handle backoffice button — return to the same tabbed admin screen admins see after login.
      */
     @FXML
     private void handleBackoffice() {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/admin_dashboard.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/admin.fxml"));
             Parent root = loader.load();
-            
+            AdminController adminController = loader.getController();
             Stage stage = (Stage) backofficeButton.getScene().getWindow();
+            adminController.setPrimaryStage(stage);
+            adminController.setCurrentUser(authService.getCurrentUser().orElse(null));
             stage.setScene(new Scene(root));
-            stage.setTitle("Backoffice Dashboard");
-            stage.setMaximized(true);
-            
-            logger.info("Navigated to Backoffice Dashboard");
-            
+            stage.setTitle("POS System - Admin Dashboard");
+            stage.setMaximized(false);
+            stage.setWidth(1200);
+            stage.setHeight(800);
+            stage.setResizable(true);
+            stage.centerOnScreen();
+            logger.info("Navigated to Admin Dashboard (tabbed)");
         } catch (Exception e) {
-            logger.error("Error loading backoffice dashboard", e);
+            logger.error("Error loading admin dashboard", e);
             showError("Error loading backoffice: " + e.getMessage());
         }
     }
@@ -1249,6 +1536,84 @@ public class POSController {
             statusText = "Online - " + status.getUnsyncedCount() + " pending";
         }
         statusLabel.setText("Status: " + statusText);
+    }
+    
+    /**
+     * Increase cart line quantity: one unit for singles, one box for box lines.
+     */
+    private void incrementCartLineQuantity(SaleItem item) {
+        Product p = item.getProduct();
+        if (p == null) {
+            showError("Cannot adjust this line. Remove it and add the product again.");
+            return;
+        }
+        if (item.isBoxSale()) {
+            int per = Math.max(1, p.getPiecesPerBulk());
+            BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
+            int newQty = item.getQuantity() + per;
+            if (newQty > p.getStockQuantity()) {
+                showError("Insufficient stock");
+                return;
+            }
+            BigDecimal newTotal = item.getTotalPrice().add(boxPrice);
+            BigDecimal unit = newTotal.divide(BigDecimal.valueOf(newQty), 6, RoundingMode.HALF_UP);
+            item.setUnitPrice(unit);
+            item.setQuantity(newQty);
+            int boxes = newQty / per;
+            item.setProductName(boxes + " Boxes - " + p.getName());
+        } else {
+            int newQty = item.getQuantity() + 1;
+            if (newQty > p.getStockQuantity()) {
+                showError("Insufficient stock");
+                return;
+            }
+            BigDecimal unit = pricingContext.getPrice(p);
+            item.setUnitPrice(unit);
+            item.setQuantity(newQty);
+        }
+        cartTable.refresh();
+        updateCartTotals();
+    }
+    
+    /**
+     * Decrease cart line quantity: one unit or one box; remove row when line would be empty.
+     */
+    private void decrementCartLineQuantity(SaleItem item, TableView<SaleItem> table) {
+        Product p = item.getProduct();
+        if (p == null) {
+            table.getItems().remove(item);
+            updateCartTotals();
+            return;
+        }
+        if (item.isBoxSale()) {
+            int per = Math.max(1, p.getPiecesPerBulk());
+            BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
+            if (item.getQuantity() <= per) {
+                table.getItems().remove(item);
+            } else {
+                int newQty = item.getQuantity() - per;
+                BigDecimal newTotal = item.getTotalPrice().subtract(boxPrice);
+                if (newTotal.compareTo(BigDecimal.ZERO) < 0) {
+                    newTotal = BigDecimal.ZERO;
+                }
+                BigDecimal unit = newTotal.divide(BigDecimal.valueOf(newQty), 6, RoundingMode.HALF_UP);
+                item.setUnitPrice(unit);
+                item.setQuantity(newQty);
+                int boxes = newQty / per;
+                item.setProductName((boxes <= 1 ? "1 Box" : boxes + " Boxes") + " - " + p.getName());
+            }
+        } else {
+            if (item.getQuantity() > 1) {
+                int newQty = item.getQuantity() - 1;
+                BigDecimal unit = pricingContext.getPrice(p);
+                item.setUnitPrice(unit);
+                item.setQuantity(newQty);
+            } else {
+                table.getItems().remove(item);
+            }
+        }
+        cartTable.refresh();
+        updateCartTotals();
     }
     
     /**

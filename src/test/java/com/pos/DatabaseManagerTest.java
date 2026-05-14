@@ -165,4 +165,62 @@ public class DatabaseManagerTest {
         List<Sale> sales = dbManager.getTodaySales();
         assertNotNull(sales);
     }
+
+    @Test
+    public void testSupplierStockInUpdatesInventory() throws Exception {
+        String barcode = "STKIN" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        Product product = new Product(
+            UUID.randomUUID().toString(),
+            barcode,
+            "Stock-In Test Product",
+            "desc",
+            "Cat",
+            new BigDecimal("10.00"),
+            new BigDecimal("8.00"),
+            20,
+            1,
+            null,
+            "Test Supplier Co",
+            "APPROVED",
+            true,
+            false,
+            LocalDateTime.now(),
+            LocalDateTime.now()
+        );
+        dbManager.insertProduct(product);
+
+        SupplierTransaction trans = new SupplierTransaction();
+        trans.setId(UUID.randomUUID().toString());
+        trans.setSupplierName("Test Supplier Co");
+        trans.setStatus(SupplierTransaction.STATUS_PAID);
+
+        SupplierTransactionItem line = new SupplierTransactionItem();
+        line.setProductId(product.getId());
+        line.setQuantityReceived(7);
+        line.setBuyingPrice(new BigDecimal("5.50"));
+
+        dbManager.processStockIn(trans, List.of(line), null);
+
+        Optional<Product> after = dbManager.findProductById(product.getId());
+        assertTrue(after.isPresent());
+        assertEquals(27, after.get().getStockQuantity());
+
+        List<SupplierTransaction> txs = dbManager.getAllSupplierTransactions();
+        assertTrue(txs.stream().anyMatch(t -> t.getId().equals(trans.getId())));
+
+        SupplierTransaction credit = new SupplierTransaction();
+        credit.setId(UUID.randomUUID().toString());
+        credit.setSupplierName("Creditor");
+        credit.setStatus(SupplierTransaction.STATUS_CREDIT);
+        SupplierTransactionItem line2 = new SupplierTransactionItem();
+        line2.setProductId(product.getId());
+        line2.setQuantityReceived(1);
+        line2.setBuyingPrice(BigDecimal.ONE);
+        dbManager.processStockIn(credit, List.of(line2), null);
+        dbManager.clearSupplierPayment(credit.getId());
+        List<SupplierTransaction> txs2 = dbManager.getAllSupplierTransactions();
+        Optional<SupplierTransaction> creditRow = txs2.stream().filter(t -> t.getId().equals(credit.getId())).findFirst();
+        assertTrue(creditRow.isPresent());
+        assertEquals(SupplierTransaction.STATUS_PAID, creditRow.get().getStatus());
+    }
 }

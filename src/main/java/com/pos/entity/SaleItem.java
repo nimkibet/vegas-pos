@@ -25,6 +25,9 @@ public class SaleItem {
     // Related entity (not stored in DB, populated on retrieval)
     private Product product;
 
+    /** True when this line was added by scanning the box (bulk) barcode; not persisted in DB. */
+    private boolean boxSale;
+
     /**
      * Default constructor - generates new UUID
      */
@@ -35,6 +38,7 @@ public class SaleItem {
         this.totalPrice = BigDecimal.ZERO;
         this.isSynced = false;
         this.createdAt = LocalDateTime.now();
+        this.boxSale = false;
     }
 
     /**
@@ -159,6 +163,14 @@ public class SaleItem {
 
     public void setProduct(Product product) {
         this.product = product;
+    }
+
+    public boolean isBoxSale() {
+        return boxSale;
+    }
+
+    public void setBoxSale(boolean boxSale) {
+        this.boxSale = boxSale;
     }
 
     /**

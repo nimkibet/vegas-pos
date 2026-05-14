@@ -2,6 +2,7 @@ package com.pos.controller;
 
 import com.pos.database.DatabaseManager;
 import com.pos.entity.Product;
+import com.pos.entity.ProductBarcodeMatch;
 import com.pos.entity.User;
 import com.pos.service.AuthenticationService;
 import javafx.fxml.FXML;
@@ -120,10 +121,10 @@ public class QuickAddController {
                 return;
             }
             
-            // Check if barcode already exists
-            Optional<Product> existing = dbManager.findProductByBarcode(barcode);
-            if (existing.isPresent()) {
-                showError("Product with this barcode already exists");
+            // Check if barcode already exists (unit or box)
+            Optional<ProductBarcodeMatch> existingMatch = dbManager.findProductByAnyBarcode(barcode);
+            if (existingMatch.isPresent()) {
+                showError("A product with this barcode (unit or box) already exists.");
                 return;
             }
             

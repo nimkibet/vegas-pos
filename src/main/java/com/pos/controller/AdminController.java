@@ -9,7 +9,6 @@ import com.pos.entity.ActivityLog;
 import com.pos.service.AnalyticsService;
 import com.pos.service.AuthenticationService;
 import com.pos.service.PrinterService;
-import com.pos.controller.LoginController;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -92,6 +91,9 @@ public class AdminController {
     @FXML private TableColumn<Product, Integer> colPendingStock;
     @FXML private TableColumn<Product, String> colPendingAddedBy;
     
+    @FXML private Parent inventoryManagement;
+    @FXML private InventoryController inventoryManagementController;
+    
     @FXML private TextField userSearchField;
     @FXML private TableView<User> usersTable;
     @FXML private TableColumn<User, String> colUserUsername;
@@ -141,7 +143,61 @@ public class AdminController {
         setupLowStockTable();
         setupPendingApprovalsTable();
         setupUserTable();
+        if (inventoryManagementController != null) {
+            inventoryManagementController.setOnInventoryChanged(this::loadDashboardData);
+        }
         loadDashboardData();
+    }
+    
+    /**
+     * Open the cashier terminal (same flow as after attendant login).
+     */
+    @FXML
+    private void handleOpenCashierTerminal() {
+        try {
+            ShiftController shiftController = ShiftController.getInstance();
+            if (!shiftController.hasActiveShift()) {
+                boolean opened = shiftController.promptOpenRegister();
+                if (!opened) {
+                    showError("Open the register before using the cashier terminal.");
+                    return;
+                }
+            }
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/pos.fxml"));
+            Parent root = loader.load();
+            POSController posController = loader.getController();
+            posController.setCurrentUser(currentUser != null ? currentUser : authService.getCurrentUser().orElse(null));
+            
+            Stage stage = primaryStage != null ? primaryStage
+                : (Stage) todayRevenueLabel.getScene().getWindow();
+            stage.setScene(new Scene(root));
+            stage.setTitle("Vegas POS - Cashier Terminal");
+            stage.setMaximized(true);
+            logger.info("Admin opened cashier terminal from tabbed admin dashboard");
+        } catch (Exception e) {
+            logger.error("Failed to open cashier terminal", e);
+            showError("Could not open cashier terminal: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Full backoffice with sidebar (stock verification, approval queue, analytics).
+     */
+    @FXML
+    private void handleOpenOperationsBackoffice() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/admin_dashboard.fxml"));
+            Parent root = loader.load();
+            Stage stage = primaryStage != null ? primaryStage
+                : (Stage) todayRevenueLabel.getScene().getWindow();
+            stage.setScene(new Scene(root));
+            stage.setTitle("Backoffice Dashboard");
+            stage.setMaximized(true);
+            logger.info("Admin opened operations backoffice (sidebar layout)");
+        } catch (Exception e) {
+            logger.error("Failed to open operations backoffice", e);
+            showError("Could not open operations backoffice: " + e.getMessage());
+        }
     }
     
     private void setupUserTable() {

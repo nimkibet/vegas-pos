@@ -1,6 +1,7 @@
 package com.pos.service;
 
 import com.pos.entity.Sale;
+import com.pos.entity.Product;
 import com.pos.entity.SaleItem;
 import com.pos.util.BrandingConstants;
 import org.slf4j.Logger;
@@ -177,9 +178,23 @@ public class ESCPosService {
             out.write(LF);
             
             // Quantity and unit price
-            String qtyLine = String.format("   %d x %s", 
-                item.getQuantity(), 
-                formatCurrency(item.getUnitPrice()));
+            String qtyLine;
+            if (item.isBoxSale() && item.getProduct() != null) {
+                Product p = item.getProduct();
+                int per = Math.max(1, p.getPiecesPerBulk());
+                int boxes = per > 0 ? item.getQuantity() / per : 1;
+                if (boxes < 1) {
+                    boxes = 1;
+                }
+                BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
+                qtyLine = String.format("   %d box(es) @ %s ea.",
+                        boxes,
+                        formatCurrency(boxPrice));
+            } else {
+                qtyLine = String.format("   %d x %s",
+                        item.getQuantity(),
+                        formatCurrency(item.getUnitPrice()));
+            }
             out.write(qtyLine.getBytes(StandardCharsets.UTF_8));
             out.write(LF);
         }

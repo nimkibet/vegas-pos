@@ -32,19 +32,23 @@
             <VBox spacing="10" VBox.vgrow="ALWAYS">
                 <Button fx:id="navProductMgmt" text="📦 Product Management" onAction="#showProductManagement" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;" 
-                        maxWidth="Infinity"
+                        styleClass="nav-button"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
                 <Button fx:id="navStockVerify" text="🔍 Stock Verification" onAction="#showStockVerification" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
-                        maxWidth="Infinity"
+                        styleClass="nav-button"
+                        onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
+                <Button fx:id="navStockIn" text="📥 Stock In" onAction="#showStockIn"
+                        style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
+                        styleClass="nav-button"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
                 <Button fx:id="navApprovalQueue" text="✓ Approval Queue" onAction="#showApprovalQueue" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
-                        maxWidth="Infinity"
+                        styleClass="nav-button"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
                 <Button fx:id="navAnalytics" text="📊 Analytics" onAction="#showAnalytics" 
                         style="-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;"
-                        maxWidth="Infinity"
+                        styleClass="nav-button"
                         onMouseEntered="#onNavHover" onMouseExited="#onNavExit" />
             </VBox>
             
@@ -59,14 +63,14 @@
         </VBox>
     </left>
     
-    <!-- Center Content Area -->
+    <!-- Center: StackPane — only the active view is visible+managed; others managed=false avoids overlap/squishing -->
     <center>
-        <StackPane fx:id="contentArea">
-            <!-- Product Management (inventory + embedded product form) -->
-            <fx:include fx:id="inventoryManagement" source="inventory_management.fxml" visible="true" />
+        <StackPane fx:id="contentArea" maxWidth="Infinity" maxHeight="Infinity">
+            <fx:include fx:id="inventoryManagement" source="inventory_management.fxml" visible="true" managed="true" />
             
-            <!-- Stock Verification View -->
-            <VBox fx:id="stockVerifyView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">
+            <fx:include fx:id="stockInForm" source="stock_in_form.fxml" visible="false" managed="false"/>
+            
+            <VBox fx:id="stockVerifyView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false" managed="false">
                 <Label text="Stock Verification" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
                 
                 <HBox spacing="15" alignment="CENTER_LEFT">
@@ -103,8 +107,7 @@
                 </VBox>
             </VBox>
             
-            <!-- Approval Queue View -->
-            <VBox fx:id="approvalQueueView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">
+            <VBox fx:id="approvalQueueView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false" managed="false">
                 <Label text="Approval Queue" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
                 
                 <HBox spacing="15">
@@ -131,8 +134,7 @@
                 </HBox>
             </VBox>
             
-            <!-- Analytics View -->
-            <VBox fx:id="analyticsView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false">
+            <VBox fx:id="analyticsView" style="-fx-padding: 20; -fx-spacing: 15;" visible="false" managed="false">
                 <Label text="Analytics" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
                 
                 <HBox spacing="15">

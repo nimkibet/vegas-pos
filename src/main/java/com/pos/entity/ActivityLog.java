@@ -17,7 +17,8 @@ public class ActivityLog {
         SHRINKAGE("Shrinkage"),
         LOGIN("Login"),
         LOGOUT("Logout"),
-        USER_MANAGEMENT("User Management");
+        USER_MANAGEMENT("User Management"),
+        STOCK_IN("Stock In");
         
         private final String displayName;
         

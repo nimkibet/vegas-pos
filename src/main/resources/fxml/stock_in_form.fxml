@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.pos.controller.StockInFormController"
+      stylesheets="@../css/style.css"
+      spacing="16" style="-fx-padding: 20;">
+    <Label text="Stock In / Supply" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
+
+    <GridPane hgap="12" vgap="10">
+        <columnConstraints>
+            <ColumnConstraints minWidth="120" prefWidth="140"/>
+            <ColumnConstraints hgrow="ALWAYS" minWidth="200"/>
+        </columnConstraints>
+
+        <Label text="Supplier name" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: #4a5568;"/>
+        <VBox spacing="4" GridPane.rowIndex="0" GridPane.columnIndex="1">
+            <TextField fx:id="supplierField" promptText="Type to search existing suppliers or enter a new name"
+                       style="-fx-padding: 10;"/>
+            <Label text="Suggestions (from product records):" style="-fx-font-size: 11; -fx-text-fill: #718096;"/>
+            <ListView fx:id="supplierSuggestionList" prefHeight="100" maxHeight="120"/>
+        </VBox>
+
+        <Label text="Product search" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: #4a5568;"/>
+        <VBox spacing="6" GridPane.rowIndex="1" GridPane.columnIndex="1">
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <TextField fx:id="productSearchField" promptText="Name or barcode..." HBox.hgrow="ALWAYS"
+                           style="-fx-padding: 10;"/>
+                <Button text="Search" onAction="#handleProductSearch" styleClass="btn-primary"/>
+                <Button text="Quick register…" onAction="#handleQuickRegisterProduct" styleClass="btn-info"/>
+            </HBox>
+            <ListView fx:id="productResultList" prefHeight="120" maxHeight="160"/>
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="Receive as:" style="-fx-text-fill: #4a5568;"/>
+                <fx:define>
+                    <ToggleGroup fx:id="receiveUnitGroup"/>
+                </fx:define>
+                <RadioButton fx:id="radioReceiveSingle" text="Single units" toggleGroup="$receiveUnitGroup" selected="true"/>
+                <RadioButton fx:id="radioReceiveBox" text="Boxes" toggleGroup="$receiveUnitGroup"/>
+            </HBox>
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <Label text="Buying price (cost)" style="-fx-text-fill: #4a5568;"/>
+                <TextField fx:id="buyingPriceField" promptText="e.g. 45.00" prefWidth="120"/>
+                <Label text="Received qty" style="-fx-text-fill: #4a5568;"/>
+                <TextField fx:id="quantityField" promptText="Units" prefWidth="90"/>
+                <Button text="Add line" onAction="#handleAddLine" styleClass="btn-success"/>
+            </HBox>
+        </VBox>
+    </GridPane>
+
+    <VBox spacing="8" VBox.vgrow="ALWAYS">
+        <Label text="Shipment lines (received)" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
+        <TableView fx:id="draftTable" prefHeight="180" VBox.vgrow="SOMETIMES" styleClass="table-view">
+            <columns>
+                <TableColumn text="Product" fx:id="colDraftProduct" prefWidth="220"/>
+                <TableColumn text="Barcode" fx:id="colDraftBarcode" prefWidth="120"/>
+                <TableColumn text="Qty (pcs)" fx:id="colDraftQty" prefWidth="80"/>
+                <TableColumn text="Buying price" fx:id="colDraftBuying" prefWidth="110"/>
+                <TableColumn text="Line total" fx:id="colDraftLineTotal" prefWidth="110"/>
+            </columns>
+        </TableView>
+        <HBox spacing="10">
+            <Label text="Payment:" style="-fx-text-fill: #4a5568;"/>
+            <fx:define>
+                <ToggleGroup fx:id="paymentStatusGroup"/>
+            </fx:define>
+            <RadioButton fx:id="radioPaid" text="PAID (settled now)" toggleGroup="$paymentStatusGroup" selected="true"/>
+            <RadioButton fx:id="radioCredit" text="CREDIT (pay later)" toggleGroup="$paymentStatusGroup"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Remove selected line" onAction="#handleRemoveDraftLine" styleClass="button"/>
+            <Button text="Record stock in" onAction="#handleRecordStockIn" styleClass="btn-primary"/>
+        </HBox>
+    </VBox>
+
+    <Separator/>
+
+    <VBox spacing="8" VBox.vgrow="ALWAYS">
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <Label text="Supplier transactions" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Clear payment (CREDIT → PAID)" onAction="#handleClearPayment" styleClass="btn-warning"/>
+        </HBox>
+        <TableView fx:id="transactionsTable" VBox.vgrow="ALWAYS" minHeight="200" styleClass="table-view">
+            <columns>
+                <TableColumn text="Date" fx:id="colTxDate" prefWidth="150"/>
+                <TableColumn text="Supplier" fx:id="colTxSupplier" prefWidth="200"/>
+                <TableColumn text="Total cost" fx:id="colTxTotal" prefWidth="120"/>
+                <TableColumn text="Status" fx:id="colTxStatus" prefWidth="90"/>
+            </columns>
+        </TableView>
+    </VBox>
+</VBox>

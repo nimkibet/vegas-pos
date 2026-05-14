@@ -46,6 +46,8 @@ public class AdminDashboardController {
     @FXML private StackPane contentArea;
     @FXML private Parent inventoryManagement;
     @FXML private InventoryController inventoryManagementController;
+    @FXML private Parent stockInForm;
+    @FXML private StockInFormController stockInFormController;
     @FXML private VBox stockVerifyView;
     @FXML private VBox approvalQueueView;
     @FXML private VBox analyticsView;
@@ -94,6 +96,15 @@ public class AdminDashboardController {
         if (inventoryManagementController != null) {
             inventoryManagementController.setOnInventoryChanged(this::loadQuickStats);
         }
+        if (stockInFormController != null) {
+            stockInFormController.setOnStockChanged(() -> {
+                loadQuickStats();
+                if (inventoryManagementController != null) {
+                    inventoryManagementController.refreshTable();
+                }
+            });
+        }
+        showProductManagement();
     }
     
     private void setupStockTable() {
@@ -152,9 +163,20 @@ public class AdminDashboardController {
     }
     
     @FXML
+    public void showStockIn() {
+        hideAllViews();
+        stockInForm.setVisible(true);
+        stockInForm.setManaged(true);
+        if (stockInFormController != null) {
+            stockInFormController.refreshAll();
+        }
+    }
+    
+    @FXML
     public void showProductManagement() {
         hideAllViews();
         inventoryManagement.setVisible(true);
+        inventoryManagement.setManaged(true);
         if (inventoryManagementController != null) {
             inventoryManagementController.refreshTable();
         }
@@ -164,6 +186,7 @@ public class AdminDashboardController {
     public void showStockVerification() {
         hideAllViews();
         stockVerifyView.setVisible(true);
+        stockVerifyView.setManaged(true);
         loadAllStock();
     }
     
@@ -171,6 +194,7 @@ public class AdminDashboardController {
     public void showApprovalQueue() {
         hideAllViews();
         approvalQueueView.setVisible(true);
+        approvalQueueView.setManaged(true);
         loadPendingApprovals();
     }
     
@@ -178,14 +202,21 @@ public class AdminDashboardController {
     public void showAnalytics() {
         hideAllViews();
         analyticsView.setVisible(true);
+        analyticsView.setManaged(true);
         loadAnalyticsData();
     }
     
     private void hideAllViews() {
         inventoryManagement.setVisible(false);
+        inventoryManagement.setManaged(false);
+        stockInForm.setVisible(false);
+        stockInForm.setManaged(false);
         stockVerifyView.setVisible(false);
+        stockVerifyView.setManaged(false);
         approvalQueueView.setVisible(false);
+        approvalQueueView.setManaged(false);
         analyticsView.setVisible(false);
+        analyticsView.setManaged(false);
     }
     
     @FXML

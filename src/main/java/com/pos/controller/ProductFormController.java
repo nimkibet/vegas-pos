@@ -178,6 +178,10 @@ public class ProductFormController {
                     errorLabel.setText("Box barcode is required when bulk option is enabled.");
                     return;
                 }
+                if (bb.equalsIgnoreCase(barcode)) {
+                    errorLabel.setText("Unit barcode and box barcode must not be the same.");
+                    return;
+                }
                 int piecesPer = parsePositiveInt(piecesPerBoxField.getText().trim(), "Pieces per box", 1);
                 if (piecesPer <= 0) {
                     errorLabel.setText("Pieces per box must be at least 1.");

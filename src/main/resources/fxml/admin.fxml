@@ -16,7 +16,10 @@
                 <Label text="Admin Dashboard" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;" />
             </HBox>
             <Region HBox.hgrow="ALWAYS" />
-            <HBox spacing="20" alignment="CENTER_RIGHT">
+            <HBox spacing="12" alignment="CENTER_RIGHT">
+                <Button text="Cashier (POS)" onAction="#handleOpenCashierTerminal" styleClass="action-btn" />
+                <Button text="Operations backoffice" onAction="#handleOpenOperationsBackoffice"
+                        style="-fx-font-size: 12; -fx-padding: 8 16; -fx-background-color: #2f855a; -fx-text-fill: white; -fx-background-radius: 5;" />
                 <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />
             </HBox>
         </HBox>
@@ -179,6 +182,11 @@
                         <Button text="Reject Selected" onAction="#handleRejectProduct" styleClass="btn-danger" />
                     </HBox>
                 </VBox>
+            </Tab>
+            
+            <!-- Product Management: same inventory UI as the POS backoffice -->
+            <Tab text="Product Management">
+                <fx:include fx:id="inventoryManagement" source="inventory_management.fxml" maxWidth="Infinity" maxHeight="Infinity" />
             </Tab>
             
             <!-- User Management Tab -->

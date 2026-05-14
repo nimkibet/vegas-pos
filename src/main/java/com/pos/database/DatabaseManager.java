@@ -6,6 +6,9 @@ import com.pos.entity.SaleItem;
 import com.pos.entity.Shift;
 import com.pos.entity.User;
 import com.pos.entity.ActivityLog;
+import com.pos.entity.ProductBarcodeMatch;
+import com.pos.entity.SupplierTransaction;
+import com.pos.entity.SupplierTransactionItem;
 import com.pos.util.BrandingConstants;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
@@ -144,6 +147,11 @@ public class DatabaseManager {
      * @throws SQLException if initialization fails
      */
     public void initialize() throws SQLException {
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+            ensureSupplierStockInTables(stmt);
+            conn.commit();
+        }
         if (!isInitialized) {
             initializeSchema();
             // IMPORTANT: seedDummyData must be called AFTER initializeSchema() returns
@@ -297,6 +305,8 @@ public class DatabaseManager {
                 )
             """);
             
+            ensureSupplierStockInTables(stmt);
+            
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_products_status ON products(status)");
@@ -314,6 +324,36 @@ public class DatabaseManager {
             
             logger.info("Database schema created successfully");
         }
+    }
+    
+    /**
+     * Supplier stock-in tables (idempotent). Runs from full schema setup and on every {@link #initialize()}
+     * so existing installs receive new tables without resetting {@code isInitialized}.
+     */
+    private void ensureSupplierStockInTables(Statement stmt) throws SQLException {
+        stmt.execute("""
+                CREATE TABLE IF NOT EXISTS supplier_transactions (
+                    id TEXT PRIMARY KEY,
+                    supplier_name TEXT NOT NULL,
+                    total_cost REAL NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('PAID', 'CREDIT')),
+                    created_at TEXT NOT NULL
+                )
+            """);
+        stmt.execute("""
+                CREATE TABLE IF NOT EXISTS supplier_transaction_items (
+                    id TEXT PRIMARY KEY,
+                    transaction_id TEXT NOT NULL,
+                    product_id TEXT NOT NULL,
+                    quantity_received INTEGER NOT NULL,
+                    buying_price REAL NOT NULL,
+                    FOREIGN KEY (transaction_id) REFERENCES supplier_transactions(id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id)
+                )
+            """);
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_supplier_transactions_created_at ON supplier_transactions(created_at)");
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_supplier_transactions_status ON supplier_transactions(status)");
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_supplier_transaction_items_tx ON supplier_transaction_items(transaction_id)");
     }
     
     /**
@@ -649,8 +689,30 @@ public class DatabaseManager {
         return Optional.empty();
     }
 
+    /**
+     * Resolves a barcode against unit {@code barcode} first, then {@code bulk_barcode}.
+     */
+    public Optional<ProductBarcodeMatch> findProductByAnyBarcode(String barcode) throws SQLException {
+        if (barcode == null || barcode.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<Product> unit = findProductByBarcode(barcode);
+        if (unit.isPresent()) {
+            return Optional.of(new ProductBarcodeMatch(unit.get(), ProductBarcodeMatch.MatchType.SINGLE));
+        }
+        Optional<Product> box = findProductByBulkBarcode(barcode);
+        if (box.isPresent()) {
+            return Optional.of(new ProductBarcodeMatch(box.get(), ProductBarcodeMatch.MatchType.BULK));
+        }
+        return Optional.empty();
+    }
+
     public Optional<Product> findProductByBulkBarcode(String barcode) throws SQLException {
-        String sql = "SELECT * FROM products WHERE bulk_barcode = ?";
+        String sql = """
+            SELECT * FROM products
+            WHERE bulk_barcode = ? AND is_active = 1
+              AND bulk_barcode IS NOT NULL AND TRIM(bulk_barcode) != ''
+            """;
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -686,7 +748,9 @@ public class DatabaseManager {
         List<Product> products = new ArrayList<>();
         String sql = """
             SELECT * FROM products 
-            WHERE is_active = 1 AND (name LIKE ? OR barcode LIKE ?)
+            WHERE is_active = 1 AND (
+                name LIKE ? OR barcode LIKE ? OR IFNULL(bulk_barcode, '') LIKE ?
+            )
             ORDER BY name
         """;
         
@@ -695,6 +759,7 @@ public class DatabaseManager {
             String term = "%" + searchTerm + "%";
             pstmt.setString(1, term);
             pstmt.setString(2, term);
+            pstmt.setString(3, term);
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -1280,13 +1345,19 @@ public class DatabaseManager {
     }
     
     public void insertActivityLog(ActivityLog log) throws SQLException {
+        try (Connection conn = connect()) {
+            insertActivityLog(conn, log);
+            conn.commit();
+        }
+    }
+    
+    private void insertActivityLog(Connection conn, ActivityLog log) throws SQLException {
         String sql = """
             INSERT INTO activity_logs (id, user_id, user_name, action_type, target_description, details, is_synced, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """;
         
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, log.getId());
             pstmt.setString(2, log.getUserId());
             pstmt.setString(3, log.getUserName());
@@ -1297,7 +1368,6 @@ public class DatabaseManager {
             pstmt.setString(8, log.getCreatedAt().format(DATE_TIME_FORMATTER));
             
             pstmt.executeUpdate();
-            conn.commit();
         }
     }
     
@@ -1343,6 +1413,149 @@ public class DatabaseManager {
             pstmt.executeUpdate();
             conn.commit();
         }
+    }
+    
+    /**
+     * Persists a supplier stock-in: header, line items, increments {@code products.stock_quantity} per line,
+     * and optionally writes an activity log row — all in one database transaction.
+     */
+    public void processStockIn(SupplierTransaction trans, List<SupplierTransactionItem> items, ActivityLog activityLog) throws SQLException {
+        if (trans == null || trans.getId() == null || trans.getId().isBlank()) {
+            throw new IllegalArgumentException("Supplier transaction id is required");
+        }
+        if (trans.getSupplierName() == null || trans.getSupplierName().isBlank()) {
+            throw new IllegalArgumentException("Supplier name is required");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("At least one stock-in line item is required");
+        }
+        String st = trans.getStatus();
+        if (!SupplierTransaction.STATUS_PAID.equals(st) && !SupplierTransaction.STATUS_CREDIT.equals(st)) {
+            throw new IllegalArgumentException("status must be PAID or CREDIT");
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (SupplierTransactionItem it : items) {
+            if (it.getProductId() == null || it.getProductId().isBlank()) {
+                throw new IllegalArgumentException("Each line must reference a product");
+            }
+            if (it.getQuantityReceived() <= 0) {
+                throw new IllegalArgumentException("Quantity received must be positive");
+            }
+            if (it.getBuyingPrice() == null || it.getBuyingPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Buying price must be zero or positive");
+            }
+            total = total.add(it.getBuyingPrice().multiply(BigDecimal.valueOf(it.getQuantityReceived())));
+        }
+        trans.setTotalCost(total);
+        if (trans.getCreatedAt() == null) {
+            trans.setCreatedAt(LocalDateTime.now());
+        }
+        
+        String insertTx = """
+            INSERT INTO supplier_transactions (id, supplier_name, total_cost, status, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """;
+        String insertLine = """
+            INSERT INTO supplier_transaction_items (id, transaction_id, product_id, quantity_received, buying_price)
+            VALUES (?, ?, ?, ?, ?)
+            """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmtTx = conn.prepareStatement(insertTx);
+             PreparedStatement pstmtLine = conn.prepareStatement(insertLine)) {
+            
+            pstmtTx.setString(1, trans.getId());
+            pstmtTx.setString(2, trans.getSupplierName().trim());
+            pstmtTx.setDouble(3, trans.getTotalCost().doubleValue());
+            pstmtTx.setString(4, st);
+            pstmtTx.setString(5, trans.getCreatedAt().format(DATE_TIME_FORMATTER));
+            pstmtTx.executeUpdate();
+            
+            for (SupplierTransactionItem it : items) {
+                if (it.getId() == null || it.getId().isBlank()) {
+                    it.setId(java.util.UUID.randomUUID().toString());
+                }
+                it.setTransactionId(trans.getId());
+                pstmtLine.setString(1, it.getId());
+                pstmtLine.setString(2, trans.getId());
+                pstmtLine.setString(3, it.getProductId());
+                pstmtLine.setInt(4, it.getQuantityReceived());
+                pstmtLine.setDouble(5, it.getBuyingPrice().doubleValue());
+                pstmtLine.executeUpdate();
+            }
+            
+            processStockIn(conn, items);
+            
+            if (activityLog != null) {
+                insertActivityLog(conn, activityLog);
+            }
+            
+            conn.commit();
+        }
+    }
+    
+    /**
+     * Increments {@code products.stock_quantity} for each stock-in line (must run inside an open transaction).
+     */
+    private void processStockIn(Connection conn, List<SupplierTransactionItem> items) throws SQLException {
+        for (SupplierTransactionItem item : items) {
+            updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
+        }
+    }
+    
+    public void clearSupplierPayment(String transactionId) throws SQLException {
+        String sql = "UPDATE supplier_transactions SET status = ? WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, SupplierTransaction.STATUS_PAID);
+            pstmt.setString(2, transactionId);
+            pstmt.executeUpdate();
+            conn.commit();
+        }
+    }
+    
+    public List<SupplierTransaction> getAllSupplierTransactions() throws SQLException {
+        List<SupplierTransaction> list = new ArrayList<>();
+        String sql = "SELECT id, supplier_name, total_cost, status, created_at FROM supplier_transactions ORDER BY datetime(created_at) DESC";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(mapResultSetToSupplierTransaction(rs));
+            }
+        }
+        return list;
+    }
+    
+    public List<String> getDistinctSupplierNamesFromProducts() throws SQLException {
+        List<String> names = new ArrayList<>();
+        String sql = """
+            SELECT DISTINCT supplier FROM products
+            WHERE supplier IS NOT NULL AND TRIM(supplier) != ''
+            ORDER BY supplier COLLATE NOCASE
+            """;
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                names.add(rs.getString(1));
+            }
+        }
+        return names;
+    }
+    
+    private SupplierTransaction mapResultSetToSupplierTransaction(ResultSet rs) throws SQLException {
+        BigDecimal total = BigDecimal.valueOf(rs.getDouble("total_cost"));
+        if (rs.wasNull()) {
+            total = BigDecimal.ZERO;
+        }
+        return new SupplierTransaction(
+            rs.getString("id"),
+            rs.getString("supplier_name"),
+            total,
+            rs.getString("status"),
+            LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER)
+        );
     }
     
     public void close() {

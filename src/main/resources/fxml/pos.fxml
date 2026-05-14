@@ -58,18 +58,26 @@
                 <StackPane>
                     <Label text="Products" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
                     <HBox alignment="CENTER_RIGHT" StackPane.alignment="CENTER_RIGHT">
-                        <Button text="Refresh" onAction="#handleRefresh" style="-fx-font-size: 12; -fx-padding: 6 12;" />
+                        <Button text="Refresh" onAction="#handleRefresh" style="-fx-font-size: 12; -fx-padding: 6 12;" maxWidth="Infinity" />
                     </HBox>
                 </StackPane>
                 
                 <!-- Search Bar -->
                 <HBox spacing="10">
                     <TextField fx:id="searchField" promptText="Search products by name or barcode..." onAction="#handleSearch" HBox.hgrow="ALWAYS" styleClass="text-field" style="-fx-font-size: 14; -fx-padding: 10;" />
-                    <Button text="Search" onAction="#handleSearch" styleClass="btn-primary" />
+                    <Button text="Search" onAction="#handleSearch" styleClass="btn-primary" maxWidth="Infinity" />
                 </HBox>
                 
                 <!-- Products Table -->
                 <TableView fx:id="productTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                    <contextMenu>
+                        <ContextMenu>
+                            <items>
+                                <MenuItem text="Add Single to Cart" onAction="#handleContextAddSingleToCart" />
+                                <MenuItem fx:id="contextMenuAddBoxItem" text="Add Box to Cart" onAction="#handleAddBoxFromTable" />
+                            </items>
+                        </ContextMenu>
+                    </contextMenu>
                     <columns>
                         <TableColumn text="Barcode" fx:id="colBarcode" prefWidth="100" />
                         <TableColumn text="Product Name" fx:id="colProductName" prefWidth="200" />
@@ -87,15 +95,16 @@
                                    onAction="#handleAddToCartByBarcode" onKeyPressed="#handleBarcodeKeyPress"
                                    style="-fx-font-size: 13; -fx-padding: 10;" />
                         <TextField fx:id="quantityField" text="1" prefWidth="70" style="-fx-font-size: 13; -fx-padding: 10;" />
-                    <Button text="Add to Cart" onAction="#handleAddToCart" styleClass="btn-success" />
+                        <Button text="Add to Cart" onAction="#handleAddToCart" styleClass="btn-success" maxWidth="Infinity" />
+                        <Button fx:id="addBoxButton" text="Add Box" onAction="#handleAddBoxFromTable" styleClass="btn-success" maxWidth="Infinity" />
                     </HBox>
                 </VBox>
                 
                 <!-- Actions -->
                 <HBox spacing="10">
-                    <Button text="Quick Add Product" onAction="#handleQuickAddProduct" styleClass="btn-info" />
+                    <Button text="Quick Add Product" onAction="#handleQuickAddProduct" styleClass="btn-info" maxWidth="Infinity" />
                     <Region HBox.hgrow="ALWAYS" />
-                    <Button text="Print Label" onAction="#handlePrintLabel" style="-fx-font-size: 12; -fx-padding: 10 15;" />
+                    <Button text="Print Label" onAction="#handlePrintLabel" style="-fx-font-size: 12; -fx-padding: 10 15;" maxWidth="Infinity" />
                 </HBox>
             </VBox>
         </VBox>
@@ -126,7 +135,7 @@
                 <TableView fx:id="cartTable" VBox.vgrow="ALWAYS" minHeight="0" maxHeight="Infinity" styleClass="table-view">
                     <columns>
                         <TableColumn text="Item" fx:id="colItemName" prefWidth="200" />
-                        <TableColumn text="Qty" fx:id="colQuantity" prefWidth="60" />
+                        <TableColumn text="Qty" fx:id="colQuantity" prefWidth="150" />
                         <TableColumn text="Unit Price" fx:id="colUnitPrice" prefWidth="80" />
                         <TableColumn text="Total" fx:id="colTotalPrice" prefWidth="80" />
                     </columns>
