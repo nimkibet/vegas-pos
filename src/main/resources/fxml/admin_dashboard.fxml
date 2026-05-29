@@ -93,7 +93,7 @@
                     <Button text="Show All" onAction="#showAllStock" styleClass="button" />
                 </HBox>
                 
-                <TableView fx:id="stockTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                <TableView fx:id="stockTable" VBox.vgrow="ALWAYS" styleClass="table-view" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
                     <columns>
                         <TableColumn text="Barcode" fx:id="colStockBarcode" prefWidth="120" />
                         <TableColumn text="Product Name" fx:id="colStockName" prefWidth="200" />
@@ -127,7 +127,7 @@
                     <Button text="Refresh" onAction="#loadPendingApprovals" styleClass="button" />
                 </HBox>
                 
-                <TableView fx:id="approvalTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                <TableView fx:id="approvalTable" VBox.vgrow="ALWAYS" styleClass="table-view" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
                     <columns>
                         <TableColumn text="Barcode" fx:id="colApprovalBarcode" prefWidth="120" />
                         <TableColumn text="Product Name" fx:id="colApprovalName" prefWidth="180" />

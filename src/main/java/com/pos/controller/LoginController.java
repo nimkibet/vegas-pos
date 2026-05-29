@@ -127,9 +127,9 @@ public class LoginController {
             // Swap scene on existing stage - no new stage, no memory leak
             primaryStage.setScene(new Scene(root));
             primaryStage.setTitle("POS System - Main");
-            primaryStage.setMaximized(true);
             primaryStage.setResizable(true);
             primaryStage.show();
+            primaryStage.setMaximized(true);
             
         } catch (Exception e) {
             logger.error("Failed to load POS screen", e);
@@ -156,11 +156,10 @@ public class LoginController {
             adminDashboardController.setPrimaryStage(primaryStage);
             adminDashboardController.setCurrentUser(user);
 
-            Scene scene = new Scene(root);
-            primaryStage.setScene(scene);
+            primaryStage.setScene(new Scene(root));
             primaryStage.setTitle("POS System - Admin Dashboard");
-            primaryStage.setMaximized(true); // Admin dashboard should be maximized
             primaryStage.show();
+            primaryStage.setMaximized(true);
 
         } catch (Exception e) {
             logger.error("Failed to load Admin screen", e);

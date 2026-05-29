@@ -22,7 +22,7 @@
                 <Button text="Refresh" onAction="#loadAllProducts" styleClass="button"/>
             </HBox>
 
-            <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+            <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
                 <columns>
                     <TableColumn text="Barcode" fx:id="colProductBarcode" prefWidth="120"/>
                     <TableColumn text="Product Name" fx:id="colProductName" prefWidth="180"/>

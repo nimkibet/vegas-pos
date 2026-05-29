@@ -33,11 +33,13 @@ public class Main extends Application {
             // Setup JavaFX stage
             primaryStage = stage;
             showLoginScreen();
-            
+
             stage.setTitle("Vegas Supermarket POS");
-            stage.sizeToScene();
-            stage.setResizable(true);
+            stage.setWidth(420);
+            stage.setHeight(520);
+            stage.setResizable(false);
             stage.centerOnScreen();
+
             stage.getProperties().put("windowsStyle", "decorated");
             stage.show();
             

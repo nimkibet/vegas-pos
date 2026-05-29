@@ -27,16 +27,13 @@
             </children>
         </HBox>
         
-        <TableView fx:id="debtorsTable" VBox.vgrow="ALWAYS">
+        <TableView fx:id="debtorsTable" VBox.vgrow="ALWAYS" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
             <columns>
                 <TableColumn fx:id="colCustomerName" prefWidth="250.0" text="Customer Name" />
                 <TableColumn fx:id="colPhone" prefWidth="150.0" text="Phone Number" />
                 <TableColumn fx:id="colPendingBatches" prefWidth="150.0" text="Unpaid Batches" />
                 <TableColumn fx:id="colTotalDebt" prefWidth="200.0" text="Total Outstanding Debt" />
             </columns>
-            <columnResizePolicy>
-                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-            </columnResizePolicy>
         </TableView>
     </children>
 </VBox>

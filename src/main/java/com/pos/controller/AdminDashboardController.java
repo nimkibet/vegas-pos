@@ -546,6 +546,7 @@ public class AdminDashboardController {
             Stage stage = (Stage) contentArea.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas POS - Point of Sale");
+            stage.show();
             stage.setMaximized(true);
             
         } catch (Exception e) {
@@ -564,6 +565,7 @@ public class AdminDashboardController {
             Stage stage = (Stage) ((javafx.scene.Node) event.getSource()).getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas POS - Cashier Terminal");
+            stage.show();
             stage.setMaximized(true);
         } catch (Exception e) {
             logger.error("Error loading POS terminal", e);

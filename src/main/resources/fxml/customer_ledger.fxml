@@ -32,16 +32,13 @@
             </children>
         </HBox>
         
-        <TableView fx:id="unpaidSalesTable" VBox.vgrow="ALWAYS">
+        <TableView fx:id="unpaidSalesTable" VBox.vgrow="ALWAYS" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
             <columns>
                 <TableColumn fx:id="saleIdColumn" prefWidth="150.0" text="Sale ID" />
                 <TableColumn fx:id="dateColumn" prefWidth="150.0" text="Date" />
                 <TableColumn fx:id="totalAmountColumn" prefWidth="120.0" text="Total Amount" />
                 <TableColumn fx:id="balanceDueColumn" prefWidth="120.0" text="Balance Due" />
             </columns>
-            <columnResizePolicy>
-                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-            </columnResizePolicy>
         </TableView>
         
         <HBox alignment="CENTER_RIGHT" spacing="15.0">
