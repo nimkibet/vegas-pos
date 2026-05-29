@@ -153,18 +153,11 @@ public class PrinterService {
                     name = name.substring(0, 20);
                 }
                 receipt.append(String.format("%-20s", name)).append(" ");
-                receipt.append(formatCurrencyStatic(item.getTotalPrice())).append("\n");
-                if (item.isBoxSale() && item.getProduct() != null) {
-                    Product p = item.getProduct();
-                    int per = Math.max(1, p.getPiecesPerBulk());
-                    int boxes = per > 0 ? item.getQuantity() / per : 1;
-                    if (boxes < 1) {
-                        boxes = 1;
-                    }
-                    BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
-                    receipt.append(String.format("   %d box(es) @ %s ea.\n", boxes, formatCurrencyStatic(boxPrice)));
+                receipt.append(String.format("%.2f", item.getTotalPrice())).append("\n");
+                if (item.isBoxSale()) {
+                    receipt.append(String.format("   %.2f box(es) x %s\n", item.getQuantity(), String.format("%.2f", item.getUnitPrice())));
                 } else {
-                    receipt.append(String.format("   %d x %s\n", item.getQuantity(), formatCurrencyStatic(item.getUnitPrice())));
+                    receipt.append(String.format("   %.2f x %s\n", item.getQuantity(), String.format("%.2f", item.getUnitPrice())));
                 }
             }
             
@@ -414,22 +407,15 @@ public class PrinterService {
                 if (name.length() > 20) {
                     name = name.substring(0, 20);
                 }
-                String line = String.format("%-20s %8s", name, formatCurrencyStatic(item.getTotalPrice()));
+                String line = String.format("%-20s %8s", name, String.format("%.2f", item.getTotalPrice()));
                 g2d.drawString(line, margin, y);
                 y += lineHeight;
                 
                 String qtyLine;
-                if (item.isBoxSale() && item.getProduct() != null) {
-                    Product p = item.getProduct();
-                    int per = Math.max(1, p.getPiecesPerBulk());
-                    int boxes = per > 0 ? item.getQuantity() / per : 1;
-                    if (boxes < 1) {
-                        boxes = 1;
-                    }
-                    BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
-                    qtyLine = String.format("   %d box(es) @ %s ea.", boxes, formatCurrencyStatic(boxPrice));
+                if (item.isBoxSale()) {
+                    qtyLine = String.format("   %.2f box(es) x %s", item.getQuantity(), String.format("%.2f", item.getUnitPrice()));
                 } else {
-                    qtyLine = String.format("   %d x %s", item.getQuantity(), formatCurrencyStatic(item.getUnitPrice()));
+                    qtyLine = String.format("   %.2f x %s", item.getQuantity(), String.format("%.2f", item.getUnitPrice()));
                 }
                 g2d.drawString(qtyLine, margin, y);
                 y += lineHeight;
@@ -579,21 +565,15 @@ public class PrinterService {
             if (name.length() > 20) {
                 name = name.substring(0, 20);
             }
-            out.write(String.format("%-20s %8s", name, formatCurrency(item.getTotalPrice())).getBytes(StandardCharsets.UTF_8));
+            out.write(String.format("%-20s %8s", name, String.format("%.2f", item.getTotalPrice())).getBytes(StandardCharsets.UTF_8));
             out.write(LF);
-            if (item.isBoxSale() && item.getProduct() != null) {
-                Product p = item.getProduct();
-                int per = Math.max(1, p.getPiecesPerBulk());
-                int boxes = per > 0 ? item.getQuantity() / per : 1;
-                if (boxes < 1) {
-                    boxes = 1;
-                }
-                BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
-                String detail = String.format("   %d box(es) @ %s ea.", boxes, formatCurrency(boxPrice));
-                out.write(detail.getBytes(StandardCharsets.UTF_8));
+            String qtyLine;
+            if (item.isBoxSale()) {
+                qtyLine = String.format("   %.2f box(es) x %s", item.getQuantity(), String.format("%.2f", item.getUnitPrice()));
             } else {
-                out.write(String.format("   %d x %s", item.getQuantity(), formatCurrency(item.getUnitPrice())).getBytes(StandardCharsets.UTF_8));
+                qtyLine = String.format("   %.2f x %s", item.getQuantity(), String.format("%.2f", item.getUnitPrice()));
             }
+            out.write(qtyLine.getBytes(StandardCharsets.UTF_8));
             out.write(LF);
         }
         

@@ -9,64 +9,66 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pos.controller.LoginController">
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pos.controller.LoginController" 
+      alignment="CENTER" spacing="30" style="-fx-background-color: #e8f5e9;" 
+      prefWidth="450" prefHeight="600">
+    <padding>
+        <Insets top="0" right="0" bottom="20" left="0"/>
+    </padding>
     
-    <StackPane style="-fx-background-color: #e8f5e9;">
+    <!-- Login Card Container with Shadow -->
+    <VBox style="-fx-background-color: white; -fx-background-radius: 16; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 20, 0, 0, 10);" 
+          alignment="CENTER" spacing="0" maxWidth="Infinity" minWidth="350">
         
-        <!-- Login Card Container -->
-        <VBox style="-fx-background-color: white; -fx-background-radius: 16;" 
-              alignment="CENTER" spacing="0" maxWidth="420">
+        <!-- Logo Header Section -->
+        <VBox style="-fx-background-color: #1a5f2a; -fx-padding: 40; -fx-background-radius: 16 16 0 0;" 
+              alignment="CENTER" spacing="12">
             
-            <!-- Logo Header Section -->
-            <VBox style="-fx-background-color: #1a5f2a; -fx-padding: 30 40 25 40; -fx-background-radius: 16 16 0 0;" 
-                  alignment="CENTER" spacing="8">
-                
-                <Label text="VEGAS SUPERMARKET" style="-fx-font-size: 28; -fx-font-weight: bold; -fx-text-fill: white; -fx-letter-spacing: 2;">
-                    <font>
-                        <Font name="Arial Bold" size="28" />
-                    </font>
-                </Label>
-                
-                <Label text="________________________" style="-fx-text-fill: white; -fx-opacity: 0.8;" />
-                
-                <Label text="Fresh • Quality • Value" style="-fx-font-size: 10; -fx-text-fill: white; -fx-letter-spacing: 2; -fx-opacity: 0.7;" />
-            </VBox>
+            <Label text="VEGAS SUPERMARKET" style="-fx-font-size: 28; -fx-font-weight: bold; -fx-text-fill: white; -fx-letter-spacing: 2;">
+                <font>
+                    <Font name="Arial Bold" size="28" />
+                </font>
+            </Label>
             
-            <!-- Login Form Section -->
-            <VBox style="-fx-background-color: white; -fx-padding: 30 40; -fx-spacing: 18;" alignment="CENTER" spacing="15">
-                
-                <Label text="POS Login" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
-                
-                <!-- Username Field -->
-                <VBox spacing="5">
-                    <Label text="Username" style="-fx-font-size: 12; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
-                    <TextField fx:id="usernameField" prefWidth="280" style="-fx-font-size: 14; -fx-padding: 12; -fx-background-radius: 6; -fx-border-radius: 6;"
-                               onKeyPressed="#handleKeyPress" />
-                </VBox>
-                
-                <!-- Password Field -->
-                <VBox spacing="5">
-                    <Label text="Password" style="-fx-font-size: 12; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
-                    <PasswordField fx:id="passwordField" prefWidth="280" style="-fx-font-size: 14; -fx-padding: 12; -fx-background-radius: 6; -fx-border-radius: 6;"
-                                   onKeyPressed="#handleKeyPress" />
-                </VBox>
-                
-                <!-- Error Message -->
-                <Label fx:id="errorLabel" text="" style="-fx-font-size: 12; -fx-text-fill: #e53e3e; -fx-min-height: 18;" />
-                
-                <!-- Login Button -->
-                <Button fx:id="loginButton" text="Sign In" defaultButton="true" onAction="#handleLogin" 
-                        prefWidth="280" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 14; -fx-background-radius: 6; -fx-background-color: #1a5f2a; -fx-text-fill: white;" />
-                
-                <!-- Hint -->
-                <Label text="Default: admin / admin123" style="-fx-font-size: 11; -fx-text-fill: #a0aec0;" />
-            </VBox>
+            <Label text="________________________" style="-fx-text-fill: white; -fx-opacity: 0.8;" />
             
-            <!-- Footer -->
-            <StackPane style="-fx-background-color: #f7fafc; -fx-padding: 15; -fx-background-radius: 0 0 16 16;">
-                <Label text="Vegas Supermarket POS v1.0 • Offline-First Point of Sale" 
-                       style="-fx-font-size: 10; -fx-text-fill: #a0aec0; -fx-opacity: 0.8;" />
-            </StackPane>
+            <Label text="Fresh • Quality • Value" style="-fx-font-size: 11; -fx-text-fill: white; -fx-letter-spacing: 2; -fx-opacity: 0.7;" />
         </VBox>
-    </StackPane>
-</StackPane>
+        
+        <!-- Login Form Section -->
+        <VBox style="-fx-background-color: white; -fx-padding: 40; -fx-spacing: 20;" alignment="CENTER">
+            
+            <Label text="POS Login" style="-fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+            
+            <!-- Username Field -->
+            <VBox spacing="8">
+                <Label text="Username" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
+                <TextField fx:id="usernameField" maxWidth="300" style="-fx-font-size: 15; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-radius: 8;"
+                           onKeyPressed="#handleKeyPress" />
+            </VBox>
+            
+            <!-- Password Field -->
+            <VBox spacing="8">
+                <Label text="Password" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
+                <PasswordField fx:id="passwordField" maxWidth="300" style="-fx-font-size: 15; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-radius: 8;"
+                               onKeyPressed="#handleKeyPress" />
+            </VBox>
+            
+            <!-- Error Message -->
+            <Label fx:id="errorLabel" text="" style="-fx-font-size: 13; -fx-text-fill: #e53e3e; -fx-min-height: 20;" />
+            
+            <!-- Login Button -->
+            <Button fx:id="loginButton" text="Sign In" defaultButton="true" onAction="#handleLogin" 
+                    prefWidth="200" prefHeight="40" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-background-radius: 8; -fx-background-color: #1a5f2a; -fx-text-fill: white; -fx-cursor: hand;" />
+            
+            <!-- Hint -->
+            <Label text="Default: admin / admin123" style="-fx-font-size: 12; -fx-text-fill: #a0aec0;" />
+        </VBox>
+        
+        <!-- Footer -->
+        <StackPane style="-fx-background-color: #f7fafc; -fx-padding: 20; -fx-background-radius: 0 0 16 16;">
+            <Label text="Vegas Supermarket POS v1.0 • Offline-First Point of Sale" 
+                   style="-fx-font-size: 11; -fx-text-fill: #a0aec0; -fx-opacity: 0.8;" />
+        </StackPane>
+    </VBox>
+</VBox>

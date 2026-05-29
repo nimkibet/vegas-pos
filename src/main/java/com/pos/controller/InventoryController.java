@@ -36,8 +36,13 @@ public class InventoryController {
     @FXML private TableColumn<Product, String> colProductCategory;
     @FXML private TableColumn<Product, String> colProductRetail;
     @FXML private TableColumn<Product, String> colProductWholesale;
-    @FXML private TableColumn<Product, Integer> colProductStock;
-    @FXML private TableColumn<Product, String> colProductSupplier;
+    @FXML
+    private TableColumn<Product, Double> colProductStock;
+    @FXML
+    private TableColumn<Product, String> colProductUnit;
+    @FXML
+    private TableColumn<Product, String> colProductSupplier;
+
     @FXML private TableColumn<Product, String> colProductStatus;
 
     public InventoryController() {
@@ -71,6 +76,7 @@ public class InventoryController {
         colProductWholesale.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty("KSh" + cell.getValue().getWholesalePrice().toPlainString()));
         colProductStock.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
+        colProductUnit.setCellValueFactory(new PropertyValueFactory<>("unitType"));
         colProductSupplier.setCellValueFactory(new PropertyValueFactory<>("supplier"));
         colProductStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
         productsTable.setItems(productsList);
@@ -185,13 +191,13 @@ public class InventoryController {
         }
 
         try {
-            int newStock = Integer.parseInt(result.get());
+            double newStock = Double.parseDouble(result.get());
             if (newStock < 0) {
                 showError("Stock count cannot be negative");
                 return;
             }
 
-            int oldStock = selected.getStockQuantity();
+            double oldStock = selected.getStockQuantity();
             String shrinkageReason = null;
 
             if (newStock < oldStock) {

@@ -35,9 +35,8 @@ public class Main extends Application {
             showLoginScreen();
             
             stage.setTitle("Vegas Supermarket POS");
-            stage.setWidth(420);
-            stage.setHeight(520);
-            stage.setResizable(false);
+            stage.sizeToScene();
+            stage.setResizable(true);
             stage.centerOnScreen();
             stage.getProperties().put("windowsStyle", "decorated");
             stage.show();
@@ -112,10 +111,8 @@ public class Main extends Application {
             Scene scene = new Scene(root);
             primaryStage.setScene(scene);
             primaryStage.setTitle("POS System - Main");
-            primaryStage.setWidth(1200);
-            primaryStage.setHeight(800);
+            primaryStage.setMaximized(true);
             primaryStage.setResizable(true);
-            primaryStage.centerOnScreen();
             
         } catch (Exception e) {
             logger.error("Failed to load POS screen", e);

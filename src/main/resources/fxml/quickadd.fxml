@@ -14,56 +14,56 @@
     
     <!-- Quick Add Card -->
     <VBox style="-fx-background-color: white; -fx-background-radius: 12;" 
-          alignment="CENTER" spacing="0" maxWidth="420">
+          alignment="CENTER" spacing="0" maxWidth="500" prefWidth="500">
         
         <!-- Header -->
-        <StackPane style="-fx-background-color: #1a5f2a; -fx-padding: 15 25; -fx-background-radius: 12 12 0 0;">
-            <Label text="Quick Add Product" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: white;">
+        <StackPane style="-fx-background-color: #1a5f2a; -fx-padding: 20 30; -fx-background-radius: 12 12 0 0;">
+            <Label text="Quick Add Product" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;">
                 <font>
-                    <Font name="Segoe UI Bold" size="18" />
+                    <Font name="Segoe UI Bold" size="20" />
                 </font>
             </Label>
         </StackPane>
         
         <!-- Form Body -->
-        <VBox style="-fx-padding: 25; -fx-spacing: 15;" alignment="CENTER">
+        <VBox style="-fx-padding: 30; -fx-spacing: 20;" alignment="CENTER">
             
-            <GridPane hgap="12.0" vgap="12.0">
+            <GridPane hgap="15.0" vgap="15.0">
                 <!-- Barcode -->
-                <Label text="Barcode:*" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                <TextField fx:id="barcodeField" prefWidth="220.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                <Label text="Barcode:*" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                <TextField fx:id="barcodeField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="0" />
                 
                 <!-- Name -->
-                <Label text="Name:*" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                <TextField fx:id="nameField" prefWidth="220.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                <Label text="Name:*" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                <TextField fx:id="nameField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                 
                 <!-- Retail Price -->
-                <Label text="Retail Price:" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                <TextField fx:id="retailPriceField" prefWidth="220.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="2" promptText="0.00" />
+                <Label text="Retail Price:" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                <TextField fx:id="retailPriceField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="2" promptText="0.00" />
                 
                 <!-- Wholesale Price -->
-                <Label text="Wholesale Price:" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="3" />
-                <TextField fx:id="wholesalePriceField" prefWidth="220.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="3" promptText="0.00" />
+                <Label text="Wholesale Price:" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                <TextField fx:id="wholesalePriceField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="3" promptText="0.00" />
                 
                 <!-- Stock -->
-                <Label text="Stock:" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="4" />
-                <TextField fx:id="stockField" prefWidth="220.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="4" promptText="0" />
+                <Label text="Initial Stock Units:" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+                <TextField fx:id="stockField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="4" promptText="Total units or Kgs" />
                 
                 <!-- Category -->
-                <Label text="Category:" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="5" />
-                <TextField fx:id="categoryField" prefWidth="220.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="5" promptText="General" />
+                <Label text="Category:" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="5" />
+                <TextField fx:id="categoryField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="5" promptText="General" />
                 
                 <!-- Error Label -->
-                <Label fx:id="errorLabel" text="" style="-fx-font-size: 12; -fx-text-fill: #e53e3e; -fx-min-height: 16;" GridPane.columnIndex="0" GridPane.columnSpan="2" 
+                <Label fx:id="errorLabel" text="" style="-fx-font-size: 13; -fx-text-fill: #e53e3e; -fx-min-height: 20;" GridPane.columnIndex="0" GridPane.columnSpan="2" 
                        GridPane.rowIndex="6" GridPane.halignment="CENTER" />
             </GridPane>
             
             <!-- Buttons -->
-            <HBox spacing="15" alignment="CENTER_RIGHT" StackPane.alignment="CENTER_RIGHT">
+            <HBox spacing="20" alignment="CENTER_RIGHT">
                 <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" 
-                       style="-fx-font-size: 13; -fx-padding: 10 25; -fx-background-color: #e2e8f0; -fx-text-fill: #4a5568; -fx-background-radius: 6;" />
+                       style="-fx-font-size: 14; -fx-padding: 12 30; -fx-background-color: #e2e8f0; -fx-text-fill: #4a5568; -fx-background-radius: 8;" />
                 <Button fx:id="saveButton" text="Save Product" onAction="#handleSave" 
-                       style="-fx-font-size: 13; -fx-font-weight: bold; -fx-padding: 10 25; -fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 6;" />
+                       style="-fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 12 30; -fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 8;" />
             </HBox>
         </VBox>
     </VBox>

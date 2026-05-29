@@ -38,6 +38,9 @@ public class ProductFormController {
     @FXML private TextField piecesPerBoxField;
     @FXML private TextField boxesReceivedField;
     @FXML private TextField loosePiecesField;
+    @FXML private ComboBox<String> unitTypeComboBox;
+    @FXML private CheckBox generateHalfCheck;
+    @FXML private CheckBox generateQuarterCheck;
     @FXML private Label errorLabel;
 
     public ProductFormController() {
@@ -54,6 +57,11 @@ public class ProductFormController {
                 "General", "Bakery", "Dairy", "Beverages", "Cooking", "Baking",
                 "Staples", "Household", "Personal Care", "Produce", "Frozen", "Snacks"
         ));
+
+        unitTypeComboBox.setItems(FXCollections.observableArrayList(
+                "Pieces", "Kg", "Grams", "Liters", "Boxes", "Bags"
+        ));
+        unitTypeComboBox.setValue("Pieces");
 
         hasBulkCheckbox.selectedProperty().addListener((obs, oldVal, selected) -> {
             bulkFieldsContainer.setVisible(selected);
@@ -96,6 +104,11 @@ public class ProductFormController {
         piecesPerBoxField.clear();
         boxesReceivedField.clear();
         loosePiecesField.clear();
+        unitTypeComboBox.setValue("Pieces");
+        generateHalfCheck.setSelected(false);
+        generateHalfCheck.setDisable(false);
+        generateQuarterCheck.setSelected(false);
+        generateQuarterCheck.setDisable(false);
         bulkFieldsContainer.setVisible(false);
         bulkFieldsContainer.setManaged(false);
     }
@@ -133,6 +146,11 @@ public class ProductFormController {
         piecesPerBoxField.setText(product.getPiecesPerBulk() > 0 ? String.valueOf(product.getPiecesPerBulk()) : "1");
         boxesReceivedField.clear();
         loosePiecesField.setText(String.valueOf(product.getStockQuantity()));
+        unitTypeComboBox.setValue(product.getUnitType() != null ? product.getUnitType() : "Pieces");
+        generateHalfCheck.setSelected(false);
+        generateHalfCheck.setDisable(true);
+        generateQuarterCheck.setSelected(false);
+        generateQuarterCheck.setDisable(true);
     }
 
     @FXML
@@ -182,9 +200,9 @@ public class ProductFormController {
                     errorLabel.setText("Unit barcode and box barcode must not be the same.");
                     return;
                 }
-                int piecesPer = parsePositiveInt(piecesPerBoxField.getText().trim(), "Pieces per box", 1);
+                int piecesPer = parsePositiveInt(piecesPerBoxField.getText().trim(), "Units per bulk", 1);
                 if (piecesPer <= 0) {
-                    errorLabel.setText("Pieces per box must be at least 1.");
+                    errorLabel.setText("Base units per bulk must be at least 1.");
                     return;
                 }
             }
@@ -198,6 +216,16 @@ public class ProductFormController {
                 applyCommonFields(p, barcode, name, category, retail, wholesale, totalStock, bulk);
                 dbManager.insertProduct(p);
                 logger.info("New product created: {}", name);
+                
+                // Auto-generate variants if requested
+                if (generateHalfCheck.isSelected()) {
+                    Product half = createVariant(p, " (0.5)", "-50", 0.5);
+                    dbManager.insertProduct(half);
+                }
+                if (generateQuarterCheck.isSelected()) {
+                    Product quarter = createVariant(p, " (0.25)", "-25", 0.25);
+                    dbManager.insertProduct(quarter);
+                }
             }
 
             if (parentController != null) {
@@ -212,6 +240,23 @@ public class ProductFormController {
             logger.error("Error saving product", e);
             errorLabel.setText("Error saving product: " + e.getMessage());
         }
+    }
+
+    private Product createVariant(Product parent, String nameSuffix, String barcodeSuffix, double ratio) {
+        Product v = new Product();
+        v.setName(parent.getName() + nameSuffix);
+        v.setBarcode(parent.getBarcode() + barcodeSuffix);
+        v.setCategory(parent.getCategory());
+        v.setUnitType(parent.getUnitType());
+        v.setRetailPrice(parent.getRetailPrice().multiply(BigDecimal.valueOf(ratio)));
+        v.setWholesalePrice(parent.getWholesalePrice().multiply(BigDecimal.valueOf(ratio)));
+        v.setStockQuantity(0); // Child stock is always 0, deducted from parent
+        v.setMinStockLevel(0);
+        v.setParentBarcode(parent.getBarcode());
+        v.setDeductionRatio(ratio);
+        v.setStatus("APPROVED");
+        v.setSupplier(parent.getSupplier());
+        return v;
     }
 
     private BigDecimal parseMoney(String raw, String label) {
@@ -265,6 +310,7 @@ public class ProductFormController {
         }
         p.setName(name);
         p.setCategory(category.isEmpty() ? "General" : category);
+        p.setUnitType(unitTypeComboBox.getValue());
         p.setRetailPrice(retail);
         p.setWholesalePrice(wholesale);
         p.setStockQuantity(totalStock);

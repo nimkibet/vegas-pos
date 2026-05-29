@@ -16,7 +16,7 @@ public class SaleItem {
     private String productId;
     private String productName;
     private String productBarcode;
-    private int quantity;
+    private double quantity;
     private BigDecimal unitPrice;
     private BigDecimal totalPrice;
     private boolean isSynced;
@@ -44,7 +44,7 @@ public class SaleItem {
     /**
      * Constructor with product info
      */
-    public SaleItem(Product product, int quantity, BigDecimal unitPrice) {
+    public SaleItem(Product product, double quantity, BigDecimal unitPrice) {
         this();
         this.productId = product.getId();
         this.productName = product.getName();
@@ -59,7 +59,7 @@ public class SaleItem {
      * Full constructor
      */
     public SaleItem(String id, String saleId, String productId, String productName,
-                    String productBarcode, int quantity, BigDecimal unitPrice,
+                    String productBarcode, double quantity, BigDecimal unitPrice,
                     BigDecimal totalPrice, boolean isSynced, LocalDateTime createdAt) {
         this.id = id;
         this.saleId = saleId;
@@ -115,11 +115,11 @@ public class SaleItem {
         this.productBarcode = productBarcode;
     }
 
-    public int getQuantity() {
+    public double getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(double quantity) {
         this.quantity = quantity;
         recalculateTotal();
     }
@@ -174,6 +174,26 @@ public class SaleItem {
     }
 
     /**
+     * Get quantity formatted with unit type (e.g., "0.5 Kg" or "2 Pieces")
+     */
+    public String getDisplayQuantity() {
+        String unit = "Pieces";
+        if (product != null && product.getUnitType() != null) {
+            unit = product.getUnitType();
+        }
+        
+        // Format quantity: remove .0 if it's a whole number
+        String qtyStr;
+        if (quantity == (long) quantity) {
+            qtyStr = String.format("%d", (long) quantity);
+        } else {
+            qtyStr = String.format("%.2f", quantity);
+        }
+        
+        return qtyStr + " " + unit;
+    }
+
+    /**
      * Recalculate total price based on quantity and unit price
      */
     public void recalculateTotal() {
@@ -187,7 +207,7 @@ public class SaleItem {
     /**
      * Increase quantity
      */
-    public void increaseQuantity(int amount) {
+    public void increaseQuantity(double amount) {
         this.quantity += amount;
         recalculateTotal();
     }
@@ -195,7 +215,7 @@ public class SaleItem {
     /**
      * Decrease quantity
      */
-    public void decreaseQuantity(int amount) {
+    public void decreaseQuantity(double amount) {
         this.quantity -= amount;
         if (this.quantity < 0) {
             this.quantity = 0;

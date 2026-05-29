@@ -11,7 +11,7 @@ public class SupplierTransactionItem {
     private String id;
     private String transactionId;
     private String productId;
-    private int quantityReceived;
+    private double quantityReceived;
     private BigDecimal buyingPrice;
 
     public SupplierTransactionItem() {
@@ -19,7 +19,7 @@ public class SupplierTransactionItem {
         this.buyingPrice = BigDecimal.ZERO;
     }
 
-    public SupplierTransactionItem(String id, String transactionId, String productId, int quantityReceived, BigDecimal buyingPrice) {
+    public SupplierTransactionItem(String id, String transactionId, String productId, double quantityReceived, BigDecimal buyingPrice) {
         this.id = id;
         this.transactionId = transactionId;
         this.productId = productId;
@@ -51,11 +51,11 @@ public class SupplierTransactionItem {
         this.productId = productId;
     }
 
-    public int getQuantityReceived() {
+    public double getQuantityReceived() {
         return quantityReceived;
     }
 
-    public void setQuantityReceived(int quantityReceived) {
+    public void setQuantityReceived(double quantityReceived) {
         this.quantityReceived = quantityReceived;
     }
 

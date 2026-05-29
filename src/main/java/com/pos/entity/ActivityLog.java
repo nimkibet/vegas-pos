@@ -18,7 +18,8 @@ public class ActivityLog {
         LOGIN("Login"),
         LOGOUT("Logout"),
         USER_MANAGEMENT("User Management"),
-        STOCK_IN("Stock In");
+        STOCK_IN("Stock In"),
+        DEBT_PAYMENT("Debt Payment");
         
         private final String displayName;
         

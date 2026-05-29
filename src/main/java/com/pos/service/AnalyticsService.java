@@ -161,4 +161,69 @@ public class AnalyticsService {
         
         return 0;
     }
+
+    /**
+     * Calculate net profit for a given date range
+     */
+    public double calculateNetProfit(LocalDate startDate, LocalDate endDate) {
+        String sql = """
+            SELECT SUM(si.quantity * (CAST(si.unit_price AS REAL) - CAST(p.wholesale_price AS REAL))) as net_profit
+            FROM sale_items si
+            JOIN products p ON si.product_id = p.id
+            JOIN sales s ON si.sale_id = s.id
+            WHERE DATE(s.created_at) BETWEEN ? AND ?
+            AND s.status = 'COMPLETED'
+            """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, startDate.toString());
+            stmt.setString(2, endDate.toString());
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("net_profit");
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error calculating net profit", e);
+        }
+        
+        return 0.0;
+    }
+
+    /**
+     * Get top selling categories
+     */
+    public List<Map<String, Object>> getTopSellingCategories() {
+        List<Map<String, Object>> result = new ArrayList<>();
+        
+        String sql = """
+            SELECT p.category, SUM(si.quantity) as total_sold
+            FROM sale_items si
+            JOIN products p ON si.product_id = p.id
+            JOIN sales s ON si.sale_id = s.id
+            WHERE s.status = 'COMPLETED'
+            GROUP BY p.category
+            ORDER BY total_sold DESC
+            LIMIT 5
+            """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            while (rs.next()) {
+                Map<String, Object> catData = new HashMap<>();
+                catData.put("category", rs.getString("category"));
+                catData.put("totalSold", rs.getInt("total_sold"));
+                result.add(catData);
+            }
+        } catch (SQLException e) {
+            logger.error("Error fetching top selling categories", e);
+        }
+        
+        return result;
+    }
 }

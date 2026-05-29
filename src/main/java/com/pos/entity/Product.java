@@ -18,8 +18,8 @@ public class Product {
     private String category;
     private BigDecimal retailPrice;
     private BigDecimal wholesalePrice;
-    private int stockQuantity;
-    private int minStockLevel;
+    private double stockQuantity;
+    private double minStockLevel;
     private String imagePath;
     private String supplier;
     private String status;
@@ -32,6 +32,11 @@ public class Product {
     private String bulkBarcode;
     private BigDecimal bulkPrice;
     private int piecesPerBulk = 1;
+
+    // Parent-Child Variant fields
+    private String parentBarcode;
+    private double deductionRatio = 1.0;
+    private String unitType = "Pieces";
 
     /**
      * Default constructor - generates new UUID
@@ -46,6 +51,8 @@ public class Product {
         this.wholesalePrice = BigDecimal.ZERO;
         this.bulkPrice = BigDecimal.ZERO;
         this.piecesPerBulk = 1;
+        this.deductionRatio = 1.0;
+        this.unitType = "Pieces";
         this.status = "APPROVED";
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -66,7 +73,7 @@ public class Product {
      */
     public Product(String id, String barcode, String name, String description, 
                    String category, BigDecimal retailPrice, BigDecimal wholesalePrice,
-                   int stockQuantity, int minStockLevel, String imagePath,
+                   double stockQuantity, double minStockLevel, String imagePath,
                    String supplier, String status, boolean isActive, boolean isSynced, 
                    LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
@@ -85,6 +92,7 @@ public class Product {
         this.isSynced = isSynced;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.deductionRatio = 1.0;
     }
 
     // Getters and Setters
@@ -145,19 +153,19 @@ public class Product {
         this.wholesalePrice = wholesalePrice;
     }
 
-    public int getStockQuantity() {
+    public double getStockQuantity() {
         return stockQuantity;
     }
 
-    public void setStockQuantity(int stockQuantity) {
+    public void setStockQuantity(double stockQuantity) {
         this.stockQuantity = stockQuantity;
     }
 
-    public int getMinStockLevel() {
+    public double getMinStockLevel() {
         return minStockLevel;
     }
 
-    public void setMinStockLevel(int minStockLevel) {
+    public void setMinStockLevel(double minStockLevel) {
         this.minStockLevel = minStockLevel;
     }
 
@@ -241,6 +249,30 @@ public class Product {
 
     public void setPiecesPerBulk(int piecesPerBulk) {
         this.piecesPerBulk = piecesPerBulk;
+    }
+
+    public String getParentBarcode() {
+        return parentBarcode;
+    }
+
+    public void setParentBarcode(String parentBarcode) {
+        this.parentBarcode = parentBarcode;
+    }
+
+    public double getDeductionRatio() {
+        return deductionRatio;
+    }
+
+    public void setDeductionRatio(double deductionRatio) {
+        this.deductionRatio = deductionRatio;
+    }
+
+    public String getUnitType() {
+        return unitType;
+    }
+
+    public void setUnitType(String unitType) {
+        this.unitType = unitType;
     }
 
     /**

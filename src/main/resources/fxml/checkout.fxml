@@ -2,6 +2,7 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.TextField?>
@@ -37,6 +38,16 @@
                 <Label fx:id="totalDueLabel" text="KSh0.00" style="-fx-font-size: 36; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
             </VBox>
             
+            <!-- Customer Selection (for Credit) -->
+            <VBox spacing="10" visible="false" fx:id="customerSection">
+                <Label text="Customer" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <ComboBox fx:id="customerDropdown" prefWidth="260" style="-fx-font-size: 14; -fx-padding: 8;" />
+                    <Button text="+" onAction="#handleQuickAddCustomer" styleClass="btn-info"
+                            style="-fx-font-size: 14; -fx-padding: 8 12; -fx-background-color: #17a2b8; -fx-text-fill: white; -fx-background-radius: 4;" />
+                </HBox>
+            </VBox>
+            
             <!-- Payment Method -->
             <VBox spacing="10">
                 <Label text="Payment Method" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
@@ -50,6 +61,8 @@
                     <RadioButton fx:id="mpesaRadio" text="M-Pesa" onAction="#handlePaymentMethodChanged" toggleGroup="$paymentGroup"
                                 style="-fx-font-size: 14; -fx-padding: 8 16;" />
                     <RadioButton fx:id="splitRadio" text="Split" onAction="#handlePaymentMethodChanged" toggleGroup="$paymentGroup"
+                                style="-fx-font-size: 14; -fx-padding: 8 16;" />
+                    <RadioButton fx:id="creditRadio" text="Credit" onAction="#handlePaymentMethodChanged" toggleGroup="$paymentGroup"
                                 style="-fx-font-size: 14; -fx-padding: 8 16;" />
                 </HBox>
             </VBox>

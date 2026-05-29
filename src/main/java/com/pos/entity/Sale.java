@@ -19,7 +19,8 @@ public class Sale {
     public enum PaymentMethod {
         CASH("Cash"),
         CARD("Card"),
-        MOBILE_MONEY("Mobile Money");
+        MOBILE_MONEY("Mobile Money"),
+        CREDIT("Credit");
         
         private final String displayName;
         
@@ -54,6 +55,8 @@ public class Sale {
 
     private String id;
     private String userId;
+    private String customerId;
+    private String paymentStatus;
     private BigDecimal subtotal;
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
@@ -89,6 +92,7 @@ public class Sale {
         this.changeGiven = BigDecimal.ZERO;
         this.status = Status.PENDING;
         this.paymentMethod = PaymentMethod.CASH;
+        this.paymentStatus = "PAID";
         this.isSynced = false;
         this.items = new ArrayList<>();
         this.createdAt = LocalDateTime.now();
@@ -134,17 +138,33 @@ public class Sale {
     public String getId() {
         return id;
     }
-
+    
     public void setId(String id) {
         this.id = id;
     }
-
+    
     public String getUserId() {
         return userId;
     }
-
+    
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+    
+    public String getCustomerId() {
+        return customerId;
+    }
+    
+    public void setCustomerId(String customerId) {
+        this.customerId = customerId;
+    }
+    
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+    
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 
     public BigDecimal getSubtotal() {
@@ -350,9 +370,9 @@ public void setStatus(Status status) {
     /**
      * Get item count
      */
-    public int getItemCount() {
+    public double getItemCount() {
         return items.stream()
-                .mapToInt(SaleItem::getQuantity)
+                .mapToDouble(SaleItem::getQuantity)
                 .sum();
     }
 

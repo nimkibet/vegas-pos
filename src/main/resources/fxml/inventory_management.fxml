@@ -30,6 +30,7 @@
                     <TableColumn text="Retail Price" fx:id="colProductRetail" prefWidth="100"/>
                     <TableColumn text="Wholesale Price" fx:id="colProductWholesale" prefWidth="110"/>
                     <TableColumn text="Stock" fx:id="colProductStock" prefWidth="70"/>
+                    <TableColumn text="Unit" fx:id="colProductUnit" prefWidth="70"/>
                     <TableColumn text="Supplier" fx:id="colProductSupplier" prefWidth="100"/>
                     <TableColumn text="Status" fx:id="colProductStatus" prefWidth="80"/>
                 </columns>

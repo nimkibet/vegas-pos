@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+      fx:controller="com.pos.controller.UserManagementController"
+      spacing="15" style="-fx-padding: 20;">
+    
+    <Label text="User Management" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+    
+    <HBox spacing="15" alignment="CENTER_LEFT">
+        <TextField fx:id="searchField" promptText="Search users..." 
+                   onKeyReleased="#handleSearch"
+                   style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" />
+        <Button text="Search" onAction="#handleSearch" styleClass="btn-primary" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="Add New User" onAction="#handleAddUser" styleClass="btn-success" />
+        <Button text="Refresh" onAction="#handleRefresh" styleClass="button" />
+    </HBox>
+    
+    <TableView fx:id="usersTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+        <columns>
+            <TableColumn fx:id="colUsername" text="Username" prefWidth="120" />
+            <TableColumn fx:id="colFullName" text="Full Name" prefWidth="200" />
+            <TableColumn fx:id="colRole" text="Role" prefWidth="100" />
+            <TableColumn fx:id="colActive" text="Active" prefWidth="80" />
+            <TableColumn fx:id="colCreatedAt" text="Created At" prefWidth="120" />
+        </columns>
+    </TableView>
+    
+    <HBox spacing="10">
+        <Button text="Edit User" onAction="#handleEditUser" styleClass="btn-warning" />
+        <Button text="Toggle Active Status" onAction="#handleToggleActive" styleClass="button" />
+        <Button text="Reset Password" onAction="#handleResetPassword" styleClass="button" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="Delete User" onAction="#handleDeleteUser" styleClass="btn-danger" />
+    </HBox>
+</VBox>

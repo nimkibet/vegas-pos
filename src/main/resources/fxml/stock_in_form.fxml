@@ -18,10 +18,10 @@
 
         <Label text="Supplier name" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-text-fill: #4a5568;"/>
         <VBox spacing="4" GridPane.rowIndex="0" GridPane.columnIndex="1">
-            <TextField fx:id="supplierField" promptText="Type to search existing suppliers or enter a new name"
-                       style="-fx-padding: 10;"/>
-            <Label text="Suggestions (from product records):" style="-fx-font-size: 11; -fx-text-fill: #718096;"/>
-            <ListView fx:id="supplierSuggestionList" prefHeight="100" maxHeight="120"/>
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <ComboBox fx:id="supplierComboBox" editable="true" prefWidth="500" promptText="Select or type a supplier name..." HBox.hgrow="ALWAYS" />
+                <Button text="💾 Save Supplier" onAction="#handleSaveSupplier" styleClass="btn-secondary" />
+            </HBox>
         </VBox>
 
         <Label text="Product search" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-text-fill: #4a5568;"/>
@@ -45,7 +45,7 @@
                 <Label text="Buying price (cost)" style="-fx-text-fill: #4a5568;"/>
                 <TextField fx:id="buyingPriceField" promptText="e.g. 45.00" prefWidth="120"/>
                 <Label text="Received qty" style="-fx-text-fill: #4a5568;"/>
-                <TextField fx:id="quantityField" promptText="Units" prefWidth="90"/>
+                <TextField fx:id="quantityField" promptText="Total Units or Kgs" prefWidth="120"/>
                 <Button text="Add line" onAction="#handleAddLine" styleClass="btn-success"/>
             </HBox>
         </VBox>
@@ -53,13 +53,13 @@
 
     <VBox spacing="8" VBox.vgrow="ALWAYS">
         <Label text="Shipment lines (received)" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
-        <TableView fx:id="draftTable" prefHeight="180" VBox.vgrow="SOMETIMES" styleClass="table-view">
+        <TableView fx:id="draftTable" VBox.vgrow="ALWAYS" styleClass="table-view">
             <columns>
                 <TableColumn text="Product" fx:id="colDraftProduct" prefWidth="220"/>
                 <TableColumn text="Barcode" fx:id="colDraftBarcode" prefWidth="120"/>
-                <TableColumn text="Qty (pcs)" fx:id="colDraftQty" prefWidth="80"/>
-                <TableColumn text="Buying price" fx:id="colDraftBuying" prefWidth="110"/>
-                <TableColumn text="Line total" fx:id="colDraftLineTotal" prefWidth="110"/>
+                <TableColumn text="Qty (Units/Kg)" fx:id="colDraftQty" prefWidth="100"/>
+                <TableColumn text="Cost (Per Unit/Kg)" fx:id="colDraftBuying" prefWidth="130"/>
+                <TableColumn text="Total Cost" fx:id="colDraftLineTotal" prefWidth="110"/>
             </columns>
         </TableView>
         <HBox spacing="10">
@@ -77,13 +77,13 @@
 
     <Separator/>
 
-    <VBox spacing="8" VBox.vgrow="ALWAYS">
+    <VBox spacing="8">
         <HBox alignment="CENTER_LEFT" spacing="12">
             <Label text="Supplier transactions" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Button text="Clear payment (CREDIT → PAID)" onAction="#handleClearPayment" styleClass="btn-warning"/>
         </HBox>
-        <TableView fx:id="transactionsTable" VBox.vgrow="ALWAYS" minHeight="200" styleClass="table-view">
+        <TableView fx:id="transactionsTable" prefHeight="200" styleClass="table-view">
             <columns>
                 <TableColumn text="Date" fx:id="colTxDate" prefWidth="150"/>
                 <TableColumn text="Supplier" fx:id="colTxSupplier" prefWidth="200"/>

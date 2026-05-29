@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class AdminDashboardController {
@@ -48,6 +49,10 @@ public class AdminDashboardController {
     @FXML private InventoryController inventoryManagementController;
     @FXML private Parent stockInForm;
     @FXML private StockInFormController stockInFormController;
+    @FXML private Parent userManagementView;
+    @FXML private UserManagementController userManagementViewController;
+    @FXML private Parent debtorsView;
+    @FXML private AdminDebtorsController debtorsViewController;
     @FXML private VBox stockVerifyView;
     @FXML private VBox approvalQueueView;
     @FXML private VBox analyticsView;
@@ -76,9 +81,14 @@ public class AdminDashboardController {
     @FXML private Label todayRevenueLabel;
     @FXML private Label todayTransactionsLabel;
     @FXML private Label analyticsProductsLabel;
+    @FXML private Label netProfitLabel;
+    @FXML private ListView<String> topCategoriesList;
     
     @FXML private javafx.scene.chart.LineChart<String, Number> revenueChart;
     @FXML private javafx.scene.chart.PieChart topItemsChart;
+
+    private Stage primaryStage;
+    private User currentUser;
     
     public AdminDashboardController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -86,6 +96,18 @@ public class AdminDashboardController {
         this.analyticsService = AnalyticsService.getInstance();
         this.stockList = FXCollections.observableArrayList();
         this.approvalList = FXCollections.observableArrayList();
+    }
+    
+    public void setPrimaryStage(Stage stage) {
+        this.primaryStage = stage;
+        if (userManagementViewController != null) {
+            userManagementViewController.setPrimaryStage(stage);
+        }
+    }
+
+    public void setCurrentUser(User user) {
+        this.currentUser = user;
+        loadQuickStats();
     }
     
     @FXML
@@ -103,6 +125,9 @@ public class AdminDashboardController {
                     inventoryManagementController.refreshTable();
                 }
             });
+        }
+        if (userManagementViewController != null) {
+            userManagementViewController.setPrimaryStage(primaryStage);
         }
         showProductManagement();
     }
@@ -199,24 +224,61 @@ public class AdminDashboardController {
     }
     
     @FXML
+    public void showUserManagement() {
+        hideAllViews();
+        userManagementView.setVisible(true);
+        userManagementView.setManaged(true);
+    }
+    
+    @FXML
     public void showAnalytics() {
         hideAllViews();
         analyticsView.setVisible(true);
         analyticsView.setManaged(true);
         loadAnalyticsData();
     }
+
+    @FXML
+    public void showDebtors() {
+        hideAllViews();
+        if (debtorsView != null) {
+            debtorsView.setVisible(true);
+            debtorsView.setManaged(true);
+        }
+        if (debtorsViewController != null) {
+            debtorsViewController.loadDebtorsData();
+        }
+    }
     
     private void hideAllViews() {
-        inventoryManagement.setVisible(false);
-        inventoryManagement.setManaged(false);
-        stockInForm.setVisible(false);
-        stockInForm.setManaged(false);
-        stockVerifyView.setVisible(false);
-        stockVerifyView.setManaged(false);
-        approvalQueueView.setVisible(false);
-        approvalQueueView.setManaged(false);
-        analyticsView.setVisible(false);
-        analyticsView.setManaged(false);
+        if (inventoryManagement != null) {
+            inventoryManagement.setVisible(false);
+            inventoryManagement.setManaged(false);
+        }
+        if (stockInForm != null) {
+            stockInForm.setVisible(false);
+            stockInForm.setManaged(false);
+        }
+        if (userManagementView != null) {
+            userManagementView.setVisible(false);
+            userManagementView.setManaged(false);
+        }
+        if (debtorsView != null) {
+            debtorsView.setVisible(false);
+            debtorsView.setManaged(false);
+        }
+        if (stockVerifyView != null) {
+            stockVerifyView.setVisible(false);
+            stockVerifyView.setManaged(false);
+        }
+        if (approvalQueueView != null) {
+            approvalQueueView.setVisible(false);
+            approvalQueueView.setManaged(false);
+        }
+        if (analyticsView != null) {
+            analyticsView.setVisible(false);
+            analyticsView.setManaged(false);
+        }
     }
     
     @FXML
@@ -424,14 +486,54 @@ public class AdminDashboardController {
         try {
             double todayRevenue = analyticsService.getTodayRevenue();
             int todayTransactions = analyticsService.getTodayTransactionCount();
-            int totalProducts = dbManager.getAllProducts().size();
+            int totalProductsCount = dbManager.getAllProducts().size();
             
             todayRevenueLabel.setText("KSh" + String.format("%,.2f", todayRevenue));
             todayTransactionsLabel.setText(String.valueOf(todayTransactions));
-            analyticsProductsLabel.setText(String.valueOf(totalProducts));
+            analyticsProductsLabel.setText(String.valueOf(totalProductsCount));
+            
+            // New Net Profit calculation
+            double netProfit = analyticsService.calculateNetProfit(java.time.LocalDate.now(), java.time.LocalDate.now());
+            netProfitLabel.setText("KSh" + String.format("%,.2f", netProfit));
+            
+            // Top Categories list
+            List<Map<String, Object>> topCategories = analyticsService.getTopSellingCategories();
+            topCategoriesList.getItems().clear();
+            for (Map<String, Object> cat : topCategories) {
+                topCategoriesList.getItems().add(cat.get("category") + " (" + cat.get("totalSold") + " items)");
+            }
+            
+            updateCharts();
             
         } catch (Exception e) {
             logger.error("Error loading analytics", e);
+        }
+    }
+    
+    private void updateCharts() {
+        // Implementation of chart updates if needed, 
+        // existing charts logic should be here or called from here
+        try {
+            // Update LineChart (Revenue)
+            List<Map<String, Object>> revenueData = analyticsService.getLast7DaysRevenue();
+            javafx.scene.chart.XYChart.Series<String, Number> series = new javafx.scene.chart.XYChart.Series<>();
+            series.setName("Revenue");
+            for (Map<String, Object> data : revenueData) {
+                series.getData().add(new javafx.scene.chart.XYChart.Data<>((String)data.get("date"), (Number)data.get("revenue")));
+            }
+            revenueChart.getData().clear();
+            revenueChart.getData().add(series);
+            
+            // Update PieChart (Top Items)
+            List<Map<String, Object>> topItems = analyticsService.getTop5SellingItems();
+            ObservableList<javafx.scene.chart.PieChart.Data> pieData = FXCollections.observableArrayList();
+            for (Map<String, Object> item : topItems) {
+                pieData.add(new javafx.scene.chart.PieChart.Data((String)item.get("productName"), (Integer)item.get("quantity")));
+            }
+            topItemsChart.setData(pieData);
+            
+        } catch (Exception e) {
+            logger.error("Error updating charts", e);
         }
     }
     

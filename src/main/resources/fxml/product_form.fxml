@@ -34,8 +34,12 @@
                 </VBox>
                 <VBox spacing="6">
                     <Label text="Category" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <ComboBox fx:id="categoryCombo" editable="true" promptText="Select or type category"
-                              style="-fx-font-size: 13;"/>
+                    <HBox spacing="10">
+                        <ComboBox fx:id="categoryCombo" editable="true" promptText="Select or type category"
+                                  style="-fx-font-size: 13;" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                        <ComboBox fx:id="unitTypeComboBox" promptText="Unit" prefWidth="100"
+                                  style="-fx-font-size: 13;"/>
+                    </HBox>
                 </VBox>
             </VBox>
 
@@ -69,22 +73,33 @@
                                    style="-fx-font-size: 13; -fx-padding: 10;"/>
                     </VBox>
                     <VBox spacing="6">
-                        <Label text="Pieces per Box" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                        <Label text="Base Units per Bulk (e.g., 50 for a 50kg bag, 12 for a dozen)" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
                         <TextField fx:id="piecesPerBoxField" promptText="e.g. 12"
                                    style="-fx-font-size: 13; -fx-padding: 10;"/>
                     </VBox>
                     <VBox spacing="6">
-                        <Label text="Boxes Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                        <Label text="Bulk Items Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
                         <TextField fx:id="boxesReceivedField" promptText="0"
                                    style="-fx-font-size: 13; -fx-padding: 10;"/>
                     </VBox>
+                    <Label text="Units per bulk, bulk barcode, and shelf price for one bulk item." 
+                           style="-fx-font-size: 11; -fx-text-fill: #718096; -fx-font-style: italic;"/>
                 </VBox>
 
                 <HBox fx:id="looseStockContainer" spacing="12" alignment="CENTER_LEFT">
-                    <Label text="Loose Pieces Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
+                    <Label text="Loose Units Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
                     <TextField fx:id="loosePiecesField" promptText="0" prefWidth="120"
                                style="-fx-font-size: 13; -fx-padding: 10;"/>
                 </HBox>
+
+                <Separator style="-fx-padding: 8 0;"/>
+                <VBox spacing="8">
+                    <Label text="Variant Generation" style="-fx-font-size: 13; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
+                    <HBox spacing="15">
+                        <CheckBox fx:id="generateHalfCheck" text="Auto-Generate Half (0.5)" style="-fx-font-size: 12;"/>
+                        <CheckBox fx:id="generateQuarterCheck" text="Auto-Generate Quarter (0.25)" style="-fx-font-size: 12;"/>
+                    </HBox>
+                </VBox>
             </VBox>
         </HBox>
     </center>

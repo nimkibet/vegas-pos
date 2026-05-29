@@ -110,12 +110,12 @@ public class QuickAddController {
             // Parse prices safely
             BigDecimal retailPriceValue;
             BigDecimal wholesalePriceValue;
-            int stockValue;
+            double stockValue;
             
             try {
                 retailPriceValue = retailPrice.isEmpty() ? BigDecimal.ZERO : new BigDecimal(retailPrice);
                 wholesalePriceValue = wholesalePrice.isEmpty() ? BigDecimal.ZERO : new BigDecimal(wholesalePrice);
-                stockValue = stock.isEmpty() ? 0 : Integer.parseInt(stock);
+                stockValue = stock.isEmpty() ? 0 : Double.parseDouble(stock);
             } catch (NumberFormatException | ArithmeticException e) {
                 showError("Invalid price or stock value. Please enter valid numbers.");
                 return;

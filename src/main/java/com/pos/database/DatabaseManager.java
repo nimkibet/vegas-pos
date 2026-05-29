@@ -1,5 +1,7 @@
 package com.pos.database;
 
+import com.pos.entity.Customer;
+import com.pos.entity.CustomerDebtSummary;
 import com.pos.entity.Product;
 import com.pos.entity.Sale;
 import com.pos.entity.SaleItem;
@@ -150,6 +152,7 @@ public class DatabaseManager {
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
             ensureSupplierStockInTables(stmt);
+            ensureCustomerCreditSchema(stmt);
             conn.commit();
         }
         if (!isInitialized) {
@@ -171,68 +174,94 @@ public class DatabaseManager {
     
     private void runSchemaScript(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    username TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    full_name TEXT NOT NULL,
-                    role TEXT NOT NULL CHECK(role IN ('ADMIN', 'ATTENDANT')),
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    is_synced INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-            """);
+              stmt.execute("""
+                  CREATE TABLE IF NOT EXISTS users (
+                      id TEXT PRIMARY KEY,
+                      username TEXT NOT NULL UNIQUE,
+                      password_hash TEXT NOT NULL,
+                      full_name TEXT NOT NULL,
+                      role TEXT NOT NULL CHECK(role IN ('ADMIN', 'ATTENDANT')),
+                      is_active INTEGER NOT NULL DEFAULT 1,
+                      is_synced INTEGER NOT NULL DEFAULT 0,
+                      created_at TEXT NOT NULL,
+                      updated_at TEXT NOT NULL
+                  )
+              """);
+              
+              stmt.execute("""
+                  CREATE TABLE IF NOT EXISTS customers (
+                      id TEXT PRIMARY KEY,
+                      name TEXT NOT NULL,
+                      phone TEXT,
+                      created_at TEXT NOT NULL
+                  )
+              """);
+              
+              stmt.execute("""
+                  CREATE TABLE IF NOT EXISTS customer_payments (
+                      id TEXT PRIMARY KEY,
+                      sale_id TEXT NOT NULL,
+                      amount_paid REAL NOT NULL,
+                      payment_date TEXT NOT NULL,
+                      FOREIGN KEY (sale_id) REFERENCES sales(id)
+                  )
+              """);
+              
+              stmt.execute("""
+                  CREATE TABLE IF NOT EXISTS products (
+                      id TEXT PRIMARY KEY,
+                      barcode TEXT UNIQUE,
+                      name TEXT NOT NULL,
+                      description TEXT,
+                      category TEXT,
+                      retail_price TEXT NOT NULL,
+                      wholesale_price TEXT NOT NULL,
+                      stock_quantity INTEGER NOT NULL DEFAULT 0,
+                      min_stock_level INTEGER NOT NULL DEFAULT 0,
+                      image_path TEXT,
+                      supplier TEXT,
+                      status TEXT NOT NULL DEFAULT 'APPROVED',
+                      is_active INTEGER NOT NULL DEFAULT 1,
+                      is_synced INTEGER NOT NULL DEFAULT 0,
+                      created_at TEXT NOT NULL,
+                      updated_at TEXT NOT NULL,
+                      bulk_barcode TEXT,
+                      bulk_price REAL DEFAULT 0.0,
+                      pieces_per_bulk INTEGER DEFAULT 1,
+                      parent_barcode TEXT DEFAULT NULL,
+                      deduction_ratio REAL DEFAULT 1.0,
+                      unit_type TEXT DEFAULT 'Pieces'
+                  )
+              """);
+              
+              ensureProductBulkColumns(stmt);
+              ensureProductVariantColumns(stmt);
+              ensureProductUnitTypeColumns(stmt);
             
             stmt.execute("""
-                CREATE TABLE IF NOT EXISTS products (
-                    id TEXT PRIMARY KEY,
-                    barcode TEXT UNIQUE,
-                    name TEXT NOT NULL,
-                    description TEXT,
-                    category TEXT,
-                    retail_price TEXT NOT NULL,
-                    wholesale_price TEXT NOT NULL,
-                    stock_quantity INTEGER NOT NULL DEFAULT 0,
-                    min_stock_level INTEGER NOT NULL DEFAULT 0,
-                    image_path TEXT,
-                    supplier TEXT,
-                    status TEXT NOT NULL DEFAULT 'APPROVED',
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    is_synced INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    bulk_barcode TEXT,
-                    bulk_price REAL DEFAULT 0.0,
-                    pieces_per_bulk INTEGER DEFAULT 1
-                )
-            """);
-            
-            ensureProductBulkColumns(stmt);
-            
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS sales (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    subtotal TEXT NOT NULL,
-                    tax_amount TEXT NOT NULL DEFAULT '0.00',
-                    discount_amount TEXT NOT NULL DEFAULT '0.00',
-                    total TEXT NOT NULL,
-                    payment_method TEXT NOT NULL,
-                    amount_paid TEXT NOT NULL,
-                    change_given TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'COMPLETED',
-                    notes TEXT,
-                    is_synced INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    cash_amount TEXT DEFAULT '0.00',
-                    mpesa_amount TEXT DEFAULT '0.00',
-                    secondary_payment_method TEXT,
-                    FOREIGN KEY (user_id) REFERENCES users(id)
-                )
-            """);
+                 CREATE TABLE IF NOT EXISTS sales (
+                     id TEXT PRIMARY KEY,
+                     user_id TEXT NOT NULL,
+                     customer_id TEXT,
+                     payment_status TEXT DEFAULT 'PAID',
+                     subtotal TEXT NOT NULL,
+                     tax_amount TEXT NOT NULL DEFAULT '0.00',
+                     discount_amount TEXT NOT NULL DEFAULT '0.00',
+                     total TEXT NOT NULL,
+                     payment_method TEXT NOT NULL,
+                     amount_paid TEXT NOT NULL,
+                     change_given TEXT NOT NULL,
+                     status TEXT NOT NULL DEFAULT 'COMPLETED',
+                     notes TEXT,
+                     is_synced INTEGER NOT NULL DEFAULT 0,
+                     created_at TEXT NOT NULL,
+                     updated_at TEXT NOT NULL,
+                     cash_amount TEXT DEFAULT '0.00',
+                     mpesa_amount TEXT DEFAULT '0.00',
+                     secondary_payment_method TEXT,
+                     FOREIGN KEY (user_id) REFERENCES users(id)
+                 )
+             """);
             
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS sale_items (
@@ -318,6 +347,9 @@ public class DatabaseManager {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_logs_action_type ON activity_logs(action_type)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_logs_is_synced ON activity_logs(is_synced)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_sales_customer_id ON sales(customer_id)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_sales_payment_status ON sales(payment_status)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_customer_payments_sale_id ON customer_payments(sale_id)");
             
             // Default users and products are now seeded via seedDummyData() which uses proper BCrypt hashing
             // This avoids holding the DB lock during seeding
@@ -361,11 +393,62 @@ public class DatabaseManager {
      * (CREATE TABLE IF NOT EXISTS does not add new columns to old tables).
      */
     private void ensureProductBulkColumns(Statement stmt) {
-        String[] alters = {
+        applyAlterMigrations(stmt, new String[]{
             "ALTER TABLE products ADD COLUMN bulk_barcode TEXT",
             "ALTER TABLE products ADD COLUMN bulk_price REAL DEFAULT 0.0",
             "ALTER TABLE products ADD COLUMN pieces_per_bulk INTEGER DEFAULT 1"
-        };
+        });
+    }
+
+    private void ensureProductVariantColumns(Statement stmt) {
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE products ADD COLUMN parent_barcode TEXT DEFAULT NULL",
+            "ALTER TABLE products ADD COLUMN deduction_ratio REAL DEFAULT 1.0"
+        });
+    }
+
+    private void ensureProductUnitTypeColumns(Statement stmt) {
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE products ADD COLUMN unit_type TEXT DEFAULT 'Pieces'"
+        });
+    }
+
+    /**
+     * Customer credit / A/R tables and sales columns (idempotent for existing databases).
+     */
+    private void ensureCustomerCreditSchema(Statement stmt) throws SQLException {
+        // Explicit table creation for the new table
+        stmt.execute("CREATE TABLE IF NOT EXISTS customer_payments (id TEXT PRIMARY KEY, sale_id TEXT, amount_paid REAL, payment_date TIMESTAMP)");
+        
+        // Suppliers table for auto-suggest
+        stmt.execute("CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)");
+        
+        // Safe ALTER TABLE blocks to upgrade existing databases
+        try { stmt.execute("ALTER TABLE sales ADD COLUMN customer_id TEXT"); } catch (Exception e) {}
+        try { stmt.execute("ALTER TABLE sales ADD COLUMN payment_status TEXT DEFAULT 'PAID'"); } catch (Exception e) {}
+        
+        stmt.execute("""
+                CREATE TABLE IF NOT EXISTS customers (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    phone TEXT,
+                    created_at TEXT NOT NULL
+                )
+            """);
+        
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_sales_customer_id ON sales(customer_id)");
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_sales_payment_status ON sales(payment_status)");
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_customer_payments_sale_id ON customer_payments(sale_id)");
+    }
+
+    private void ensureSalesCreditColumns(Statement stmt) {
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE sales ADD COLUMN customer_id TEXT",
+            "ALTER TABLE sales ADD COLUMN payment_status TEXT DEFAULT 'PAID'"
+        });
+    }
+
+    private void applyAlterMigrations(Statement stmt, String[] alters) {
         for (String sql : alters) {
             try {
                 stmt.execute(sql);
@@ -564,6 +647,48 @@ public class DatabaseManager {
         return users;
     }
 
+    public List<CustomerDebtSummary> getAllDebtors() throws SQLException {
+        List<CustomerDebtSummary> debtorSummaries = new ArrayList<>();
+        // Get all customers who have at least one CREDIT sale
+        String sql = "SELECT DISTINCT customer_id FROM sales WHERE payment_status = 'CREDIT' AND customer_id IS NOT NULL";
+        
+        List<String> customerIds = new ArrayList<>();
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                customerIds.add(rs.getString("customer_id"));
+            }
+        }
+
+        for (String customerId : customerIds) {
+            Optional<Customer> customerOpt = findCustomerById(customerId);
+            if (customerOpt.isPresent()) {
+                List<Sale> unpaidSales = getUnpaidSalesForCustomer(customerId);
+                BigDecimal totalDebt = BigDecimal.ZERO;
+                int pendingBatches = 0;
+
+                for (Sale sale : unpaidSales) {
+                    BigDecimal totalPaid = getTotalPaidForSale(sale.getId());
+                    BigDecimal balance = sale.getTotal().subtract(totalPaid);
+                    if (balance.compareTo(BigDecimal.ZERO) > 0) {
+                        totalDebt = totalDebt.add(balance);
+                        pendingBatches++;
+                    }
+                }
+
+                if (totalDebt.compareTo(BigDecimal.ZERO) > 0) {
+                    debtorSummaries.add(new CustomerDebtSummary(customerOpt.get(), totalDebt, pendingBatches));
+                }
+            }
+        }
+        
+        // Sort by total debt descending
+        debtorSummaries.sort((a, b) -> b.getTotalDebt().compareTo(a.getTotalDebt()));
+        
+        return debtorSummaries;
+    }
+
     public void insertUser(User user) throws SQLException {
         String sql = """
             INSERT INTO users (id, username, password_hash, full_name, role, is_active, is_synced, created_at, updated_at)
@@ -655,6 +780,19 @@ public class DatabaseManager {
         return false;
     }
 
+    private Optional<Product> findProductByIdInternal(Connection conn, String id) throws SQLException {
+        String sql = "SELECT * FROM products WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapResultSetToProduct(rs));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     public Optional<Product> findProductById(String id) throws SQLException {
         String sql = "SELECT * FROM products WHERE id = ?";
         
@@ -669,6 +807,19 @@ public class DatabaseManager {
             }
         }
         
+        return Optional.empty();
+    }
+
+    private Optional<Product> findProductByBarcodeInternal(Connection conn, String barcode) throws SQLException {
+        String sql = "SELECT * FROM products WHERE barcode = ? AND is_active = 1";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, barcode);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapResultSetToProduct(rs));
+                }
+            }
+        }
         return Optional.empty();
     }
 
@@ -809,8 +960,8 @@ public class DatabaseManager {
         String sql = """
             INSERT INTO products (id, barcode, name, description, category, retail_price,
             wholesale_price, stock_quantity, min_stock_level, image_path, supplier, status, is_active, is_synced, created_at, updated_at,
-            bulk_barcode, bulk_price, pieces_per_bulk)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            bulk_barcode, bulk_price, pieces_per_bulk, parent_barcode, deduction_ratio, unit_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
         
         try (Connection conn = connect();
@@ -822,8 +973,8 @@ public class DatabaseManager {
             pstmt.setString(5, product.getCategory());
             pstmt.setString(6, product.getRetailPrice().toPlainString());
             pstmt.setString(7, product.getWholesalePrice().toPlainString());
-            pstmt.setInt(8, product.getStockQuantity());
-            pstmt.setInt(9, product.getMinStockLevel());
+            pstmt.setDouble(8, product.getStockQuantity());
+            pstmt.setDouble(9, product.getMinStockLevel());
             pstmt.setString(10, product.getImagePath());
             pstmt.setString(11, product.getSupplier());
             pstmt.setString(12, product.getStatus() != null ? product.getStatus() : "APPROVED");
@@ -836,6 +987,9 @@ public class DatabaseManager {
             pstmt.setBigDecimal(18, bulkPrice);
             int piecesPerBulk = product.getPiecesPerBulk() > 0 ? product.getPiecesPerBulk() : 1;
             pstmt.setInt(19, piecesPerBulk);
+            pstmt.setString(20, product.getParentBarcode());
+            pstmt.setDouble(21, product.getDeductionRatio());
+            pstmt.setString(22, product.getUnitType() != null ? product.getUnitType() : "Pieces");
             
             pstmt.executeUpdate();
             conn.commit();
@@ -847,7 +1001,8 @@ public class DatabaseManager {
             UPDATE products SET barcode = ?, name = ?, description = ?, category = ?,
             retail_price = ?, wholesale_price = ?, stock_quantity = ?, min_stock_level = ?,
             image_path = ?, supplier = ?, status = ?, is_active = ?, is_synced = ?,
-            bulk_barcode = ?, bulk_price = ?, pieces_per_bulk = ?, updated_at = ? WHERE id = ?
+            bulk_barcode = ?, bulk_price = ?, pieces_per_bulk = ?, parent_barcode = ?, 
+            deduction_ratio = ?, unit_type = ?, updated_at = ? WHERE id = ?
         """;
         
         try (Connection conn = connect();
@@ -858,8 +1013,8 @@ public class DatabaseManager {
             pstmt.setString(4, product.getCategory());
             pstmt.setString(5, product.getRetailPrice().toPlainString());
             pstmt.setString(6, product.getWholesalePrice().toPlainString());
-            pstmt.setInt(7, product.getStockQuantity());
-            pstmt.setInt(8, product.getMinStockLevel());
+            pstmt.setDouble(7, product.getStockQuantity());
+            pstmt.setDouble(8, product.getMinStockLevel());
             pstmt.setString(9, product.getImagePath());
             pstmt.setString(10, product.getSupplier());
             pstmt.setString(11, product.getStatus() != null ? product.getStatus() : "APPROVED");
@@ -870,20 +1025,23 @@ public class DatabaseManager {
             pstmt.setBigDecimal(15, bulkPrice);
             int piecesPerBulk = product.getPiecesPerBulk() > 0 ? product.getPiecesPerBulk() : 1;
             pstmt.setInt(16, piecesPerBulk);
-            pstmt.setString(17, LocalDateTime.now().format(DATE_TIME_FORMATTER));
-            pstmt.setString(18, product.getId());
+            pstmt.setString(17, product.getParentBarcode());
+            pstmt.setDouble(18, product.getDeductionRatio());
+            pstmt.setString(19, product.getUnitType() != null ? product.getUnitType() : "Pieces");
+            pstmt.setString(20, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+            pstmt.setString(21, product.getId());
             
             pstmt.executeUpdate();
             conn.commit();
         }
     }
 
-    public void updateProductStock(String productId, int newQuantity) throws SQLException {
+    public void updateProductStock(String productId, double newQuantity) throws SQLException {
         String sql = "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, newQuantity);
+            pstmt.setDouble(1, newQuantity);
             pstmt.setString(2, LocalDateTime.now().format(DATE_TIME_FORMATTER));
             pstmt.setString(3, productId);
             
@@ -892,11 +1050,11 @@ public class DatabaseManager {
         }
     }
     
-    void updateProductStock(Connection conn, String productId, int quantityDelta) throws SQLException {
+    void updateProductStock(Connection conn, String productId, double quantityDelta) throws SQLException {
         String sql = "UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?";
         
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, quantityDelta);
+            pstmt.setDouble(1, quantityDelta);
             pstmt.setString(2, LocalDateTime.now().format(DATE_TIME_FORMATTER));
             pstmt.setString(3, productId);
             
@@ -948,24 +1106,26 @@ public class DatabaseManager {
     }
 
     public void insertSale(Sale sale) throws SQLException {
-        String sql = "INSERT INTO sales (id, user_id, subtotal, tax_amount, discount_amount, total, payment_method, amount_paid, change_given, status, notes, is_synced, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sales (id, user_id, customer_id, payment_status, subtotal, tax_amount, discount_amount, total, payment_method, amount_paid, change_given, status, notes, is_synced, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, sale.getId());
             pstmt.setString(2, sale.getUserId());
-            pstmt.setString(3, sale.getSubtotal().toPlainString());
-            pstmt.setString(4, sale.getTaxAmount().toPlainString());
-            pstmt.setString(5, sale.getDiscountAmount().toPlainString());
-            pstmt.setString(6, sale.getTotal().toPlainString());
-            pstmt.setString(7, sale.getPaymentMethod().name());
-            pstmt.setString(8, sale.getAmountPaid().toPlainString());
-            pstmt.setString(9, sale.getChangeGiven().toPlainString());
-            pstmt.setString(10, sale.getStatus().name());
-            pstmt.setString(11, sale.getNotes());
-            pstmt.setInt(12, sale.isSynced() ? 1 : 0);
-            pstmt.setString(13, sale.getCreatedAt().format(DATE_TIME_FORMATTER));
-            pstmt.setString(14, sale.getUpdatedAt().format(DATE_TIME_FORMATTER));
+            pstmt.setString(3, sale.getCustomerId());
+            pstmt.setString(4, sale.getPaymentStatus() != null ? sale.getPaymentStatus() : "PAID");
+            pstmt.setString(5, sale.getSubtotal().toPlainString());
+            pstmt.setString(6, sale.getTaxAmount().toPlainString());
+            pstmt.setString(7, sale.getDiscountAmount().toPlainString());
+            pstmt.setString(8, sale.getTotal().toPlainString());
+            pstmt.setString(9, sale.getPaymentMethod().name());
+            pstmt.setString(10, sale.getAmountPaid().toPlainString());
+            pstmt.setString(11, sale.getChangeGiven().toPlainString());
+            pstmt.setString(12, sale.getStatus().name());
+            pstmt.setString(13, sale.getNotes());
+            pstmt.setInt(14, sale.isSynced() ? 1 : 0);
+            pstmt.setString(15, sale.getCreatedAt().format(DATE_TIME_FORMATTER));
+            pstmt.setString(16, sale.getUpdatedAt().format(DATE_TIME_FORMATTER));
             
             pstmt.executeUpdate();
             
@@ -985,11 +1145,59 @@ public class DatabaseManager {
             for (SaleItem item : sale.getItems()) {
                 insertSaleItem(conn, item, sale.getId());
             }
-            
+            // Deduct stock
             for (SaleItem item : sale.getItems()) {
-                updateProductStock(conn, item.getProductId(), -item.getQuantity());
+                Optional<Product> pOpt = findProductByIdInternal(conn, item.getProductId());
+                if (pOpt.isPresent()) {
+                    Product p = pOpt.get();
+                    double delta = item.getQuantity();
+                    
+                    if (item.isBoxSale()) {
+                        delta = item.getQuantity() * p.getPiecesPerBulk();
+                    }
+                    
+                    // If this is a child variant, subtract from parent instead
+                    if (p.getParentBarcode() != null && !p.getParentBarcode().isEmpty()) {
+                        Optional<Product> parentOpt = findProductByBarcodeInternal(conn, p.getParentBarcode());
+                        if (parentOpt.isPresent()) {
+                            double parentDelta = delta * p.getDeductionRatio();
+                            updateProductStock(conn, parentOpt.get().getId(), -parentDelta);
+                        } else {
+                            // Fallback if parent not found (shouldn't happen with proper setup)
+                            updateProductStock(conn, p.getId(), -delta);
+                        }
+                    } else {
+                        // Normal product
+                        updateProductStock(conn, p.getId(), -delta);
+                    }
+                }
             }
             
+            // Initial credit payment is already stored in sales.amount_paid.
+            // We do NOT insert it into customer_payments here to avoid double-counting.
+            // customer_payments will ONLY hold subsequent ledger payments.
+            
+            conn.commit();
+        }
+    }
+
+    private void insertCustomerPayment(Connection conn, String saleId, BigDecimal amount) throws SQLException {
+        String sql = """
+            INSERT INTO customer_payments (id, sale_id, amount_paid, payment_date)
+            VALUES (?, ?, ?, ?)
+            """;
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, java.util.UUID.randomUUID().toString());
+            pstmt.setString(2, saleId);
+            pstmt.setDouble(3, amount.doubleValue());
+            pstmt.setString(4, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+            pstmt.executeUpdate();
+        }
+    }
+
+    public void insertCustomerPayment(String saleId, BigDecimal amount) throws SQLException {
+        try (Connection conn = connect()) {
+            insertCustomerPayment(conn, saleId, amount);
             conn.commit();
         }
     }
@@ -1007,7 +1215,7 @@ public class DatabaseManager {
             pstmt.setString(3, item.getProductId());
             pstmt.setString(4, item.getProductName());
             pstmt.setString(5, item.getProductBarcode());
-            pstmt.setInt(6, item.getQuantity());
+            pstmt.setDouble(6, item.getQuantity());
             pstmt.setString(7, item.getUnitPrice().toPlainString());
             pstmt.setString(8, item.getTotalPrice().toPlainString());
             pstmt.setInt(9, item.isSynced() ? 1 : 0);
@@ -1231,8 +1439,8 @@ public class DatabaseManager {
         p.setRetailPrice(retailPriceStr != null ? new BigDecimal(retailPriceStr) : BigDecimal.ZERO);
         p.setWholesalePrice(wholesalePriceStr != null ? new BigDecimal(wholesalePriceStr) : BigDecimal.ZERO);
         
-        p.setStockQuantity(rs.getInt("stock_quantity"));
-        p.setMinStockLevel(rs.getInt("min_stock_level"));
+        p.setStockQuantity(rs.getDouble("stock_quantity"));
+        p.setMinStockLevel(rs.getDouble("min_stock_level"));
         p.setImagePath(rs.getString("image_path"));
         p.setSupplier(rs.getString("supplier"));
         
@@ -1257,6 +1465,17 @@ public class DatabaseManager {
             p.setPiecesPerBulk(piecesPerBulk);
         }
         
+        p.setParentBarcode(rs.getString("parent_barcode"));
+        p.setDeductionRatio(rs.getDouble("deduction_ratio"));
+        if (rs.wasNull()) {
+            p.setDeductionRatio(1.0);
+        }
+        
+        p.setUnitType(rs.getString("unit_type"));
+        if (p.getUnitType() == null) {
+            p.setUnitType("Pieces");
+        }
+        
         return p;
     }
 
@@ -1264,6 +1483,9 @@ public class DatabaseManager {
         Sale sale = new Sale();
         sale.setId(rs.getString("id"));
         sale.setUserId(rs.getString("user_id"));
+        sale.setCustomerId(rs.getString("customer_id"));
+        String paymentStatus = rs.getString("payment_status");
+        sale.setPaymentStatus(paymentStatus != null ? paymentStatus : "PAID");
         sale.setSubtotal(new BigDecimal(rs.getString("subtotal")));
         sale.setTaxAmount(new BigDecimal(rs.getString("tax_amount")));
         sale.setDiscountAmount(new BigDecimal(rs.getString("discount_amount")));
@@ -1479,7 +1701,7 @@ public class DatabaseManager {
                 pstmtLine.setString(1, it.getId());
                 pstmtLine.setString(2, trans.getId());
                 pstmtLine.setString(3, it.getProductId());
-                pstmtLine.setInt(4, it.getQuantityReceived());
+                pstmtLine.setDouble(4, it.getQuantityReceived());
                 pstmtLine.setDouble(5, it.getBuyingPrice().doubleValue());
                 pstmtLine.executeUpdate();
             }
@@ -1499,7 +1721,23 @@ public class DatabaseManager {
      */
     private void processStockIn(Connection conn, List<SupplierTransactionItem> items) throws SQLException {
         for (SupplierTransactionItem item : items) {
-            updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
+            Optional<Product> pOpt = findProductByIdInternal(conn, item.getProductId());
+            if (pOpt.isPresent()) {
+                Product p = pOpt.get();
+                if (p.getParentBarcode() != null && !p.getParentBarcode().isEmpty()) {
+                    Optional<Product> parentOpt = findProductByBarcodeInternal(conn, p.getParentBarcode());
+                    if (parentOpt.isPresent()) {
+                        double parentDelta = item.getQuantityReceived() * p.getDeductionRatio();
+                        updateProductStock(conn, parentOpt.get().getId(), parentDelta);
+                    } else {
+                        updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
+                    }
+                } else {
+                    updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
+                }
+            } else {
+                updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
+            }
         }
     }
     
@@ -1558,6 +1796,226 @@ public class DatabaseManager {
         );
     }
     
+    public Optional<Customer> findCustomerById(String id) throws SQLException {
+        String sql = "SELECT * FROM customers WHERE id = ?";
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, id);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapResultSetToCustomer(rs));
+                }
+            }
+        }
+        
+        return Optional.empty();
+    }
+
+    public List<Customer> getAllCustomers() throws SQLException {
+        List<Customer> customers = new ArrayList<>();
+        String sql = "SELECT * FROM customers ORDER BY name";
+        
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                customers.add(mapResultSetToCustomer(rs));
+            }
+        }
+        
+        return customers;
+    }
+
+    public List<Sale> getUnpaidSalesForCustomer(String customerId) throws SQLException {
+        List<Sale> sales = new ArrayList<>();
+        // Join with customer_payments to get current total paid so far
+        String sql = """
+            SELECT s.*, 
+                   (SELECT COALESCE(SUM(amount_paid), 0) FROM customer_payments WHERE sale_id = s.id) as ledger_paid
+            FROM sales s 
+            WHERE s.customer_id = ? AND s.payment_status = 'CREDIT' 
+            ORDER BY s.created_at ASC
+            """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, customerId);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Sale sale = mapResultSetToSale(rs);
+                    // Update sale.amountPaid to reflect TOTAL paid so far (initial + ledger)
+                    BigDecimal ledgerPaid = BigDecimal.valueOf(rs.getDouble("ledger_paid"));
+                    sale.setAmountPaid(sale.getAmountPaid().add(ledgerPaid));
+                    
+                    sale.setItems(getSaleItems(sale.getId()));
+                    sales.add(sale);
+                }
+            }
+        }
+        
+        return sales;
+    }
+
+    public BigDecimal getTotalPaidForSale(String saleId) throws SQLException {
+        String sql = """
+            SELECT (CAST(s.amount_paid AS REAL) + COALESCE((SELECT SUM(amount_paid) FROM customer_payments WHERE sale_id = s.id), 0)) as total_paid
+            FROM sales s
+            WHERE s.id = ?
+            """;
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, saleId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return BigDecimal.valueOf(rs.getDouble(1));
+                }
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    public boolean recordCustomerPayment(String saleId, BigDecimal paymentAmount) {
+        try (Connection conn = connect()) {
+            // 1. Insert the payment record
+            insertCustomerPayment(conn, saleId, paymentAmount);
+            
+            // 2. Query the database for the TRUE sum of all payments (initial + all ledger payments)
+            BigDecimal totalPaid = getTotalPaidForSaleInternal(conn, saleId);
+            
+            // 3. Get the sale's total amount
+            BigDecimal totalSaleAmount = BigDecimal.ZERO;
+            String fetchSql = "SELECT total FROM sales WHERE id = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(fetchSql)) {
+                pstmt.setString(1, saleId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        totalSaleAmount = new BigDecimal(rs.getString("total"));
+                    }
+                }
+            }
+            
+            // 4. Update status to PAID only if fully covered
+            if (totalPaid.compareTo(totalSaleAmount) >= 0) {
+                String updateSql = "UPDATE sales SET payment_status = 'PAID', updated_at = ? WHERE id = ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                    pstmt.setString(1, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+                    pstmt.setString(2, saleId);
+                    pstmt.executeUpdate();
+                }
+            }
+            
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            logger.error("Database error recording customer payment for sale: {}", saleId, e);
+            return false;
+        }
+    }
+
+    private BigDecimal getTotalPaidForSaleInternal(Connection conn, String saleId) throws SQLException {
+        String sql = """
+            SELECT (CAST(s.amount_paid AS REAL) + COALESCE((SELECT SUM(amount_paid) FROM customer_payments WHERE sale_id = s.id), 0)) as total_paid
+            FROM sales s
+            WHERE s.id = ?
+            """;
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, saleId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return BigDecimal.valueOf(rs.getDouble(1));
+                }
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    public void insertCustomer(Customer customer) throws SQLException {
+        String sql = """
+            INSERT INTO customers (id, name, phone, created_at)
+            VALUES (?, ?, ?, ?)
+            """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, customer.getId());
+            pstmt.setString(2, customer.getName());
+            pstmt.setString(3, customer.getPhone());
+            pstmt.setString(4, customer.getCreatedAt().format(DATE_TIME_FORMATTER));
+            
+            pstmt.executeUpdate();
+            conn.commit();
+        }
+    }
+
+    private Customer mapResultSetToCustomer(ResultSet rs) throws SQLException {
+        return new Customer(
+            rs.getString("id"),
+            rs.getString("name"),
+            rs.getString("phone"),
+            LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER),
+            false // isSynced - not used in customer entity currently
+        );
+    }
+
+    public void ensureSupplierExists(String supplierName) {
+        if (supplierName == null || supplierName.trim().isEmpty()) return;
+        String sql = "INSERT OR IGNORE INTO suppliers (name) VALUES (?)";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, supplierName.trim());
+            pstmt.executeUpdate();
+            conn.commit();
+        } catch (SQLException e) {
+            logger.error("Failed to ensure supplier exists: {}", supplierName, e);
+        }
+    }
+
+    public boolean addSupplier(String supplierName) throws SQLException {
+        if (supplierName == null || supplierName.trim().isEmpty()) {
+            return false;
+        }
+        String name = supplierName.trim();
+        
+        try (Connection conn = connect()) {
+            // Case-insensitive check
+            String checkSql = "SELECT COUNT(*) FROM suppliers WHERE name = ? COLLATE NOCASE";
+            try (PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+                checkStmt.setString(1, name);
+                try (ResultSet rs = checkStmt.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        return false; // Already exists
+                    }
+                }
+            }
+            
+            String insertSql = "INSERT INTO suppliers (name) VALUES (?)";
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                insertStmt.setString(1, name);
+                insertStmt.executeUpdate();
+            }
+            
+            conn.commit();
+            return true;
+        }
+    }
+
+    public List<String> getAllSupplierNames() throws SQLException {
+        List<String> names = new ArrayList<>();
+        String sql = "SELECT name FROM suppliers ORDER BY name";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                names.add(rs.getString("name"));
+            }
+        }
+        return names;
+    }
+
     public void close() {
         logger.info("Database manager closed");
     }

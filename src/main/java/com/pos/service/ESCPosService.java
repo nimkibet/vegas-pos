@@ -179,21 +179,14 @@ public class ESCPosService {
             
             // Quantity and unit price
             String qtyLine;
-            if (item.isBoxSale() && item.getProduct() != null) {
-                Product p = item.getProduct();
-                int per = Math.max(1, p.getPiecesPerBulk());
-                int boxes = per > 0 ? item.getQuantity() / per : 1;
-                if (boxes < 1) {
-                    boxes = 1;
-                }
-                BigDecimal boxPrice = p.getBulkPrice() != null ? p.getBulkPrice() : BigDecimal.ZERO;
-                qtyLine = String.format("   %d box(es) @ %s ea.",
-                        boxes,
-                        formatCurrency(boxPrice));
-            } else {
-                qtyLine = String.format("   %d x %s",
+            if (item.isBoxSale()) {
+                qtyLine = String.format("   %.2f box(es) x %s",
                         item.getQuantity(),
-                        formatCurrency(item.getUnitPrice()));
+                        String.format("%.2f", item.getUnitPrice()));
+            } else {
+                qtyLine = String.format("   %.2f x %s",
+                        item.getQuantity(),
+                        String.format("%.2f", item.getUnitPrice()));
             }
             out.write(qtyLine.getBytes(StandardCharsets.UTF_8));
             out.write(LF);

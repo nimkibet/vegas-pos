@@ -37,14 +37,11 @@ public class StockInFormController {
     private final AuthenticationService authService = AuthenticationService.getInstance();
 
     private Runnable onStockChanged;
-    private ObservableList<String> allSupplierNames = FXCollections.observableArrayList();
-    private ObservableList<String> filteredSupplierNames = FXCollections.observableArrayList();
     private ObservableList<Product> productSearchResults = FXCollections.observableArrayList();
     private ObservableList<StockInDraftLine> draftLines = FXCollections.observableArrayList();
     private ObservableList<SupplierTransaction> transactions = FXCollections.observableArrayList();
 
-    @FXML private TextField supplierField;
-    @FXML private ListView<String> supplierSuggestionList;
+    @FXML private ComboBox<String> supplierComboBox;
     @FXML private TextField productSearchField;
     @FXML private ListView<Product> productResultList;
     @FXML private TextField buyingPriceField;
@@ -54,9 +51,9 @@ public class StockInFormController {
     @FXML private TableView<StockInDraftLine> draftTable;
     @FXML private TableColumn<StockInDraftLine, String> colDraftProduct;
     @FXML private TableColumn<StockInDraftLine, String> colDraftBarcode;
-    @FXML private TableColumn<StockInDraftLine, Integer> colDraftQty;
-    @FXML private TableColumn<StockInDraftLine, String> colDraftBuying;
-    @FXML private TableColumn<StockInDraftLine, String> colDraftLineTotal;
+    @FXML private TableColumn<StockInDraftLine, Double> colDraftQty;
+    @FXML private TableColumn<StockInDraftLine, BigDecimal> colDraftBuying;
+    @FXML private TableColumn<StockInDraftLine, BigDecimal> colDraftLineTotal;
     @FXML private RadioButton radioPaid;
     @FXML private RadioButton radioCredit;
     @FXML private TableView<SupplierTransaction> transactionsTable;
@@ -70,10 +67,32 @@ public class StockInFormController {
         colDraftProduct.setCellValueFactory(new PropertyValueFactory<>("productName"));
         colDraftBarcode.setCellValueFactory(new PropertyValueFactory<>("barcode"));
         colDraftQty.setCellValueFactory(new PropertyValueFactory<>("quantity"));
-        colDraftBuying.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(
-                "KSh " + c.getValue().getBuyingPrice().toPlainString()));
-        colDraftLineTotal.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(
-                "KSh " + c.getValue().getLineTotal().toPlainString()));
+
+        colDraftBuying.setCellValueFactory(new PropertyValueFactory<>("buyingPrice"));
+        colDraftBuying.setCellFactory(tc -> new TableCell<StockInDraftLine, BigDecimal>() {
+            @Override
+            protected void updateItem(BigDecimal price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("KSh %.2f", price));
+                }
+            }
+        });
+
+        colDraftLineTotal.setCellValueFactory(c -> new javafx.beans.property.SimpleObjectProperty<>(c.getValue().getLineTotal()));
+        colDraftLineTotal.setCellFactory(tc -> new TableCell<StockInDraftLine, BigDecimal>() {
+            @Override
+            protected void updateItem(BigDecimal price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("KSh %.2f", price));
+                }
+            }
+        });
 
         draftTable.setItems(draftLines);
 
@@ -82,12 +101,10 @@ public class StockInFormController {
                         ? c.getValue().getCreatedAt().format(TS) : ""));
         colTxSupplier.setCellValueFactory(new PropertyValueFactory<>("supplierName"));
         colTxTotal.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty("KSh " + c.getValue().getTotalCost().toPlainString()));
+                new javafx.beans.property.SimpleStringProperty(String.format("%.2f", c.getValue().getTotalCost())));
         colTxStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
         transactionsTable.setItems(transactions);
 
-        supplierSuggestionList.setItems(filteredSupplierNames);
-        supplierSuggestionList.setPrefHeight(100);
         productResultList.setItems(productSearchResults);
         productResultList.setPrefHeight(120);
         productResultList.setCellFactory(lv -> new ListCell<>() {
@@ -102,13 +119,6 @@ public class StockInFormController {
             }
         });
 
-        supplierField.textProperty().addListener((o, oldV, newV) -> filterSuppliers(newV));
-        supplierSuggestionList.getSelectionModel().selectedItemProperty().addListener((o, oldV, newV) -> {
-            if (newV != null) {
-                supplierField.setText(newV);
-            }
-        });
-
         if (radioReceiveBox != null) {
             radioReceiveBox.selectedProperty().addListener((o, a, b) -> updateReceiveQuantityPrompt());
         }
@@ -117,7 +127,7 @@ public class StockInFormController {
         }
         updateReceiveQuantityPrompt();
 
-        loadSupplierNames();
+        loadSuppliers();
         loadTransactions();
     }
 
@@ -126,7 +136,7 @@ public class StockInFormController {
     }
 
     public void refreshAll() {
-        loadSupplierNames();
+        loadSuppliers();
         loadTransactions();
     }
 
@@ -135,28 +145,15 @@ public class StockInFormController {
             return;
         }
         boolean box = radioReceiveBox != null && radioReceiveBox.isSelected();
-        quantityField.setPromptText(box ? "Number of boxes" : "Units (pieces)");
+        quantityField.setPromptText(box ? "Number of bulk items" : "Total Units or Kgs");
     }
 
-    private void loadSupplierNames() {
+    private void loadSuppliers() {
         try {
-            allSupplierNames.setAll(dbManager.getDistinctSupplierNamesFromProducts());
-            filterSuppliers(supplierField != null ? supplierField.getText() : "");
+            List<String> suppliers = dbManager.getAllSupplierNames();
+            supplierComboBox.setItems(FXCollections.observableArrayList(suppliers));
         } catch (Exception e) {
             logger.error("Failed loading supplier names", e);
-        }
-    }
-
-    private void filterSuppliers(String query) {
-        String q = query == null ? "" : query.trim().toLowerCase();
-        if (q.isEmpty()) {
-            filteredSupplierNames.setAll(allSupplierNames);
-        } else {
-            filteredSupplierNames.setAll(
-                    allSupplierNames.stream()
-                            .filter(s -> s.toLowerCase().contains(q))
-                            .limit(50)
-                            .collect(Collectors.toList()));
         }
     }
 
@@ -177,6 +174,28 @@ public class StockInFormController {
     }
 
     @FXML
+    private void handleSaveSupplier() {
+        String name = supplierComboBox.getEditor().getText().trim();
+        if (name.isEmpty()) {
+            showError("Please enter a supplier name to save.");
+            return;
+        }
+        try {
+            boolean added = dbManager.addSupplier(name);
+            if (added) {
+                showInfo("Supplier [" + name + "] saved successfully!");
+                loadSuppliers(); // Refresh the dropdown
+                supplierComboBox.setValue(name);
+            } else {
+                showInfo("This supplier already exists in the database.");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to save supplier", e);
+            showError("Could not save supplier: " + e.getMessage());
+        }
+    }
+
+    @FXML
     private void handleAddLine() {
         Product p = productResultList.getSelectionModel().getSelectedItem();
         if (p == null) {
@@ -191,7 +210,7 @@ public class StockInFormController {
         }
         try {
             BigDecimal buying = new BigDecimal(bp);
-            int qty = Integer.parseInt(qStr);
+            double qty = Double.parseDouble(qStr);
             if (qty <= 0) {
                 showError("Quantity must be greater than zero.");
                 return;
@@ -212,7 +231,7 @@ public class StockInFormController {
                 }
                 int per = p.getPiecesPerBulk();
                 if (per < 2) {
-                    showError("Pieces per box must be at least 2.");
+                    showError("Base units per bulk must be at least 2.");
                     return;
                 }
                 String bulkBc = p.getBulkBarcode();
@@ -220,9 +239,9 @@ public class StockInFormController {
                     showError("Box barcode is still missing after setup.");
                     return;
                 }
-                int pieces = qty * per;
+                double pieces = qty * per;
                 BigDecimal buyingPerPiece = buying.divide(BigDecimal.valueOf(per), 6, RoundingMode.HALF_UP);
-                String label = p.getName() + " (" + qty + " box" + (qty == 1 ? "" : "es") + " → " + pieces + " pcs)";
+                String label = p.getName() + " (" + qty + " bulk item" + (qty == 1 ? "" : "s") + " → " + pieces + " units)";
                 draftLines.add(new StockInDraftLine(p.getId(), label, p.getBarcode(), pieces, buyingPerPiece));
             } else {
                 draftLines.add(new StockInDraftLine(p.getId(), p.getName(), p.getBarcode(), qty, buying));
@@ -252,7 +271,7 @@ public class StockInFormController {
         TextField piecesField = new TextField("12");
         TextField bulkBarcodeField = new TextField();
         TextField boxRetailField = new TextField();
-        Label boxHint = new Label("Pieces per box, case barcode, and shelf price for one case (POS).");
+        Label boxHint = new Label("Units per bulk, case barcode, and shelf price for one case (POS).");
         boxHint.setWrapText(true);
         boxHint.setStyle("-fx-text-fill: #718096; -fx-font-size: 11;");
 
@@ -317,7 +336,7 @@ public class StockInFormController {
         grid.add(categoryField, 1, r++);
         grid.add(shipInBoxes, 0, r++, 2, 1);
         grid.add(boxHint, 0, r++, 2, 1);
-        grid.add(new Label("Pieces per box"), 0, r);
+        grid.add(new Label("Units per bulk"), 0, r);
         grid.add(piecesField, 1, r++);
         grid.add(new Label("Case / box barcode"), 0, r);
         grid.add(bulkBarcodeField, 1, r++);
@@ -359,7 +378,7 @@ public class StockInFormController {
             product.setBarcode(barcode);
             product.setStockQuantity(0);
             product.setCategory(category.isEmpty() ? "General" : category);
-            String supplierName = supplierField.getText() != null ? supplierField.getText().trim() : "";
+            String supplierName = supplierComboBox.getEditor().getText().trim();
             if (!supplierName.isEmpty()) {
                 product.setSupplier(supplierName);
             }
@@ -372,9 +391,9 @@ public class StockInFormController {
             }
 
             if (shipInBoxes.isSelected()) {
-                int per = parsePositiveInt(piecesField.getText(), "Pieces per box");
+                int per = parsePositiveInt(piecesField.getText(), "Units per bulk");
                 if (per < 2) {
-                    showError("Pieces per box must be at least 2.");
+                    showError("Units per bulk must be at least 2.");
                     return;
                 }
                 String bulkBc = bulkBarcodeField.getText() != null ? bulkBarcodeField.getText().trim() : "";
@@ -468,7 +487,7 @@ public class StockInFormController {
         grid.setVgap(10);
         grid.setPadding(new Insets(10, 0, 0, 0));
         int r = 0;
-        grid.add(new Label("Pieces per box *"), 0, r);
+        grid.add(new Label("Units per bulk *"), 0, r);
         grid.add(piecesField, 1, r++);
         grid.add(new Label("Case / box barcode *"), 0, r);
         grid.add(bulkBarcodeField, 1, r++);
@@ -488,9 +507,9 @@ public class StockInFormController {
         }
 
         try {
-            int per = parsePositiveInt(piecesField.getText(), "Pieces per box");
+            int per = parsePositiveInt(piecesField.getText(), "Units per bulk");
             if (per < 2) {
-                showError("Pieces per box must be at least 2.");
+                showError("Units per bulk must be at least 2.");
                 return Optional.empty();
             }
             String bulkBc = bulkBarcodeField.getText() != null ? bulkBarcodeField.getText().trim() : "";
@@ -627,7 +646,7 @@ public class StockInFormController {
 
     @FXML
     private void handleRecordStockIn() {
-        String supplier = supplierField.getText() == null ? "" : supplierField.getText().trim();
+        String supplier = supplierComboBox.getEditor().getText().trim();
         if (supplier.isEmpty()) {
             showError("Enter a supplier name.");
             return;
@@ -636,6 +655,10 @@ public class StockInFormController {
             showError("Add at least one product line.");
             return;
         }
+
+        // Auto-save supplier
+        dbManager.ensureSupplierExists(supplier);
+
         boolean credit = radioCredit != null && radioCredit.isSelected();
         String status = credit ? SupplierTransaction.STATUS_CREDIT : SupplierTransaction.STATUS_PAID;
 
@@ -659,12 +682,12 @@ public class StockInFormController {
             BigDecimal total = items.stream()
                     .map(i -> i.getBuyingPrice().multiply(BigDecimal.valueOf(i.getQuantityReceived())))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            String amountStr = "KSh " + total.toPlainString();
+            String amountStr = String.format("%.2f", total);
             log = new ActivityLog(
                     u.getId(),
                     u.getFullName(),
                     ActivityLog.ActionType.STOCK_IN,
-                    "Stock In: " + supplier + " - " + amountStr,
+                    "Stock In: " + supplier + " - KSh " + amountStr,
                     "Lines: " + items.size() + ", payment: " + status
             );
         }
@@ -675,7 +698,7 @@ public class StockInFormController {
             buyingPriceField.clear();
             quantityField.clear();
             loadTransactions();
-            loadSupplierNames();
+            loadSuppliers();
             if (onStockChanged != null) {
                 onStockChanged.run();
             }
@@ -746,10 +769,10 @@ public class StockInFormController {
         private final javafx.beans.property.StringProperty productId = new javafx.beans.property.SimpleStringProperty();
         private final javafx.beans.property.StringProperty productName = new javafx.beans.property.SimpleStringProperty();
         private final javafx.beans.property.StringProperty barcode = new javafx.beans.property.SimpleStringProperty();
-        private final javafx.beans.property.IntegerProperty quantity = new javafx.beans.property.SimpleIntegerProperty();
+        private final javafx.beans.property.DoubleProperty quantity = new javafx.beans.property.SimpleDoubleProperty();
         private final javafx.beans.property.ObjectProperty<BigDecimal> buyingPrice = new javafx.beans.property.SimpleObjectProperty<>(BigDecimal.ZERO);
 
-        public StockInDraftLine(String productId, String productName, String barcode, int quantity, BigDecimal buyingPrice) {
+        public StockInDraftLine(String productId, String productName, String barcode, double quantity, BigDecimal buyingPrice) {
             this.productId.set(productId);
             this.productName.set(productName);
             this.barcode.set(barcode);
@@ -769,7 +792,7 @@ public class StockInFormController {
             return barcode.get();
         }
 
-        public int getQuantity() {
+        public double getQuantity() {
             return quantity.get();
         }
 
@@ -781,7 +804,7 @@ public class StockInFormController {
             return buyingPrice;
         }
 
-        public javafx.beans.property.IntegerProperty quantityProperty() {
+        public javafx.beans.property.DoubleProperty quantityProperty() {
             return quantity;
         }
 

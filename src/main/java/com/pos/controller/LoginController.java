@@ -127,10 +127,8 @@ public class LoginController {
             // Swap scene on existing stage - no new stage, no memory leak
             primaryStage.setScene(new Scene(root));
             primaryStage.setTitle("POS System - Main");
-            primaryStage.setWidth(1200);
-            primaryStage.setHeight(800);
+            primaryStage.setMaximized(true);
             primaryStage.setResizable(true);
-            primaryStage.centerOnScreen();
             primaryStage.show();
             
         } catch (Exception e) {
@@ -146,33 +144,29 @@ public class LoginController {
         try {
             Optional<User> userOpt = authService.getCurrentUser();
             final User user = userOpt.orElse(null);
-            
+
             // Standard JavaFX data-passing pattern:
             // 1. Load FXML (initialize() runs safely)
             // 2. Get controller (UI is now built)
             // 3. Set primary stage and user
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/admin.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/admin_dashboard.fxml"));
             Parent root = loader.load();
-            
-            AdminController adminController = loader.getController();
-            adminController.setPrimaryStage(primaryStage);
-            adminController.setCurrentUser(user);
-            
+
+            AdminDashboardController adminDashboardController = loader.getController();
+            adminDashboardController.setPrimaryStage(primaryStage);
+            adminDashboardController.setCurrentUser(user);
+
             Scene scene = new Scene(root);
             primaryStage.setScene(scene);
             primaryStage.setTitle("POS System - Admin Dashboard");
-            primaryStage.setWidth(1200);
-            primaryStage.setHeight(800);
-            primaryStage.setResizable(true);
-            primaryStage.centerOnScreen();
+            primaryStage.setMaximized(true); // Admin dashboard should be maximized
             primaryStage.show();
-            
+
         } catch (Exception e) {
             logger.error("Failed to load Admin screen", e);
             showError("Failed to load Admin screen");
         }
-    }
-    
+    }    
     /**
      * Handle Enter key in password field
      */
