@@ -52,6 +52,7 @@ public class CustomerLedgerController {
     }
 
     private void setupTable() {
+        unpaidSalesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         saleIdColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
         dateColumn.setCellValueFactory(cellData -> 
             new SimpleStringProperty(cellData.getValue().getCreatedAt().format(DATE_FORMATTER)));

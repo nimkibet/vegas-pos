@@ -32,7 +32,7 @@
             </children>
         </HBox>
         
-        <TableView fx:id="unpaidSalesTable" VBox.vgrow="ALWAYS" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
+        <TableView fx:id="unpaidSalesTable" VBox.vgrow="ALWAYS">
             <columns>
                 <TableColumn fx:id="saleIdColumn" prefWidth="150.0" text="Sale ID" />
                 <TableColumn fx:id="dateColumn" prefWidth="150.0" text="Date" />

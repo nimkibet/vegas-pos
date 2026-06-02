@@ -35,9 +35,7 @@ public class Main extends Application {
             showLoginScreen();
 
             stage.setTitle("Vegas Supermarket POS");
-            stage.setWidth(420);
-            stage.setHeight(520);
-            stage.setResizable(false);
+            stage.setResizable(true);
             stage.centerOnScreen();
 
             stage.getProperties().put("windowsStyle", "decorated");

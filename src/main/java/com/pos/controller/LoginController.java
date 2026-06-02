@@ -128,8 +128,13 @@ public class LoginController {
             primaryStage.setScene(new Scene(root));
             primaryStage.setTitle("POS System - Main");
             primaryStage.setResizable(true);
+            
+            // Set standard size and center
+            primaryStage.setWidth(1280);
+            primaryStage.setHeight(800);
+            primaryStage.centerOnScreen();
+            
             primaryStage.show();
-            primaryStage.setMaximized(true);
             
         } catch (Exception e) {
             logger.error("Failed to load POS screen", e);
@@ -158,8 +163,13 @@ public class LoginController {
 
             primaryStage.setScene(new Scene(root));
             primaryStage.setTitle("POS System - Admin Dashboard");
+            
+            // Set standard size and center
+            primaryStage.setWidth(1280);
+            primaryStage.setHeight(800);
+            primaryStage.centerOnScreen();
+            
             primaryStage.show();
-            primaryStage.setMaximized(true);
 
         } catch (Exception e) {
             logger.error("Failed to load Admin screen", e);

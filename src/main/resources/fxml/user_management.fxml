@@ -37,4 +37,30 @@
         <Region HBox.hgrow="ALWAYS" />
         <Button text="Delete User" onAction="#handleDeleteUser" styleClass="btn-danger" />
     </HBox>
+    
+    <!-- User Analysis Section -->
+    <VBox spacing="10" style="-fx-background-color: #f0fdf4; -fx-padding: 15; -fx-border-color: #bbf7d0; -fx-border-radius: 8; -fx-background-radius: 8;">
+        <Label text="User Analytics" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #166534;" />
+        <GridPane hgap="30" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints minWidth="150" />
+                <ColumnConstraints minWidth="100" />
+                <ColumnConstraints minWidth="150" />
+                <ColumnConstraints minWidth="100" />
+            </columnConstraints>
+            <children>
+                <Label text="Total Users:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;" />
+                <Label fx:id="totalUsersLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                
+                <Label text="Active Users:" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;" />
+                <Label fx:id="activeUsersLabel" text="0" GridPane.columnIndex="3" GridPane.rowIndex="0" style="-fx-text-fill: #16a34a;" />
+                
+                <Label text="Administrators:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;" />
+                <Label fx:id="adminCountLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                
+                <Label text="Attendants:" GridPane.columnIndex="2" GridPane.rowIndex="1" style="-fx-font-weight: bold;" />
+                <Label fx:id="attendantCountLabel" text="0" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+            </children>
+        </GridPane>
+    </VBox>
 </VBox>

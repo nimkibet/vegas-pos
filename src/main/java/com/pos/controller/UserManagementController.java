@@ -35,6 +35,12 @@ public class UserManagementController {
     
     @FXML private TextField searchField;
     
+    // FXML components - Analytics
+    @FXML private Label totalUsersLabel;
+    @FXML private Label activeUsersLabel;
+    @FXML private Label adminCountLabel;
+    @FXML private Label attendantCountLabel;
+    
     private final DatabaseManager dbManager;
     private final AuthenticationService authService;
     private final ObservableList<User> userList;
@@ -75,10 +81,25 @@ public class UserManagementController {
             List<User> users = dbManager.getAllUsers();
             userList.clear();
             userList.addAll(users);
+            updateAnalytics();
         } catch (Exception e) {
             logger.error("Error loading users", e);
             showError("Error loading users: " + e.getMessage());
         }
+    }
+    
+    private void updateAnalytics() {
+        if (totalUsersLabel == null) return;
+        
+        long total = userList.size();
+        long active = userList.stream().filter(User::isActive).count();
+        long admins = userList.stream().filter(User::isAdmin).count();
+        long attendants = userList.stream().filter(User::isAttendant).count();
+        
+        totalUsersLabel.setText(String.valueOf(total));
+        activeUsersLabel.setText(String.valueOf(active));
+        adminCountLabel.setText(String.valueOf(admins));
+        attendantCountLabel.setText(String.valueOf(attendants));
     }
     
     @FXML

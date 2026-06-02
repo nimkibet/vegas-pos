@@ -27,7 +27,7 @@
             </children>
         </HBox>
         
-        <TableView fx:id="debtorsTable" VBox.vgrow="ALWAYS" columnResizePolicy="CONSTRAINED_RESIZE_POLICY">
+        <TableView fx:id="debtorsTable" VBox.vgrow="ALWAYS">
             <columns>
                 <TableColumn fx:id="colCustomerName" prefWidth="250.0" text="Customer Name" />
                 <TableColumn fx:id="colPhone" prefWidth="150.0" text="Phone Number" />

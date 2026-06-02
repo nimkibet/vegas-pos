@@ -129,7 +129,7 @@ public class POSController {
     @FXML
     private TextField quantityField;
     @FXML
-    private ToggleButton wholesaleToggle;
+    private Button pricingModeButton;
     @FXML
     private Label userLabel;
     @FXML
@@ -250,8 +250,52 @@ public class POSController {
         
         // Setup cart table columns
         colItemName.setCellValueFactory(new PropertyValueFactory<>("productName"));
-        colQuantity.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(cellData.getValue().getDisplayQuantity()));
+        
+        // Custom cell factory for quantity with +/- buttons
+        colQuantity.setCellFactory(col -> new TableCell<SaleItem, String>() {
+            private final Button minusBtn = new Button("-");
+            private final Button plusBtn = new Button("+");
+            private final Label qtyLabel = new Label();
+            private final HBox hbox = new HBox(10, minusBtn, qtyLabel, plusBtn);
+
+            {
+                hbox.setAlignment(Pos.CENTER);
+                minusBtn.setStyle("-fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 30;");
+                plusBtn.setStyle("-fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 30;");
+                
+                minusBtn.setOnAction(e -> {
+                    SaleItem item = getTableView().getItems().get(getIndex());
+                    if (item.getQuantity() > 1) {
+                        item.setQuantity(item.getQuantity() - 1);
+                        getTableView().refresh();
+                        refreshCartTotals();
+                    }
+                });
+                
+                plusBtn.setOnAction(e -> {
+                    SaleItem item = getTableView().getItems().get(getIndex());
+                    // Check stock if needed, or just increment
+                    item.setQuantity(item.getQuantity() + 1);
+                    getTableView().refresh();
+                    refreshCartTotals();
+                });
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setGraphic(null);
+                } else {
+                    SaleItem saleItem = (SaleItem) getTableRow().getItem();
+                    String unit = (saleItem.getProduct() != null && saleItem.getProduct().getUnitType() != null) 
+                                 ? saleItem.getProduct().getUnitType() : "";
+                    qtyLabel.setText(String.format("%.2f %s", saleItem.getQuantity(), unit).trim());
+                    setGraphic(hbox);
+                }
+            }
+        });
+
         colUnitPrice.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleStringProperty(
                 String.format("%.2f", cellData.getValue().getUnitPrice())));
@@ -259,12 +303,13 @@ public class POSController {
             new javafx.beans.property.SimpleStringProperty(
                 String.format("%.2f", cellData.getValue().getTotalPrice())));
 
-        // Make cart table editable
-        setupCartTableEditing();
-        
         // Use FilteredList for the table
         productTable.setItems(filteredProductList);
         cartTable.setItems(cartList);
+        
+        // Set column resize policy programmatically to avoid FXML coercion issues
+        productTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        cartTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
         productTable.setRowFactory(tv -> {
             TableRow<Product> row = new TableRow<>();
@@ -304,50 +349,6 @@ public class POSController {
         requestBarcodeFocus();
     }
 
-    private void setupCartTableEditing() {
-        colQuantity.setCellFactory(javafx.scene.control.cell.TextFieldTableCell.forTableColumn());
-        colQuantity.setOnEditCommit(event -> {
-            try {
-                // Try to parse the numeric part of the input
-                String input = event.getNewValue().trim();
-                // If it ends with the unit, try to remove it
-                SaleItem item = event.getRowValue();
-                String unit = (item.getProduct() != null && item.getProduct().getUnitType() != null) 
-                             ? item.getProduct().getUnitType() : "Pieces";
-                
-                if (input.endsWith(unit)) {
-                    input = input.substring(0, input.length() - unit.length()).trim();
-                }
-                
-                double newQty = Double.parseDouble(input);
-                item.setQuantity(newQty);
-                refreshCartTotals();
-                cartTable.refresh();
-            } catch (NumberFormatException e) {
-                showError("Invalid quantity format.");
-                cartTable.refresh();
-            }
-        });
-
-        colUnitPrice.setCellFactory(javafx.scene.control.cell.TextFieldTableCell.forTableColumn());
-        colUnitPrice.setOnEditCommit(event -> {
-            try {
-                BigDecimal newPrice = new BigDecimal(event.getNewValue());
-                SaleItem item = event.getRowValue();
-                item.setUnitPrice(newPrice);
-                item.recalculateTotal();
-                refreshCartTotals();
-                cartTable.refresh();
-            } catch (NumberFormatException e) {
-                showError("Invalid price format.");
-                cartTable.refresh();
-            }
-        });
-    }
-    
-    /**
-     * Request focus on barcode field for scanner input
-     */
     private void requestBarcodeFocus() {
         javafx.application.Platform.runLater(() -> {
             if (barcodeField != null) {
@@ -546,7 +547,8 @@ public class POSController {
     /**
      * Load products from database
      */
-    private void loadProducts() {
+    @FXML
+    public void loadProducts() {
         try {
             List<Product> products = dbManager.getAllProducts();
             if (products == null) {
@@ -577,6 +579,7 @@ public class POSController {
         Optional<User> user = authService.getCurrentUser();
         if (user.isPresent()) {
             currentSale = new Sale(user.get().getId());
+            currentSale.setUser(user.get()); // Explicitly set the user object
             currentSale.setPaymentMethod(Sale.PaymentMethod.CASH);
         } else {
             currentSale = new Sale("default");
@@ -1471,9 +1474,7 @@ public class POSController {
             // 4. Swap the scene on the existing stage (NO new Stage())
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas Supermarket POS");
-            stage.setWidth(420);
-            stage.setHeight(520);
-            stage.setResizable(false);
+            stage.setResizable(true);
             stage.centerOnScreen();
             
             // 5. Clear auth state
@@ -1543,14 +1544,14 @@ public class POSController {
     }
     
     /**
-     * Handle wholesale toggle
+     * Handle pricing mode toggle
      */
     @FXML
-    private void handleWholesaleToggle() {
-        if (wholesaleToggle.isSelected()) {
-            pricingContext.useWholesalePricing();
-        } else {
+    private void togglePricingMode() {
+        if (pricingContext.isWholesaleMode()) {
             pricingContext.useRetailPricing();
+        } else {
+            pricingContext.useWholesalePricing();
         }
         updatePriceMode();
         showSuccess("Price mode: " + pricingContext.getCurrentStrategyName());
@@ -1558,13 +1559,13 @@ public class POSController {
     
     private void updatePriceMode() {
         if (pricingContext.isWholesaleMode()) {
-            wholesaleToggle.setText("📦 Mode: WHOLESALE (Click for Retail)");
-            wholesaleToggle.setStyle("-fx-background-color: #f59e0b; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-cursor: hand;");
+            pricingModeButton.setText("📦 Mode: WHOLESALE (Click for Retail)");
+            pricingModeButton.setStyle("-fx-background-color: #f59e0b; -fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold; -fx-cursor: hand;");
             colRetailPrice.setStyle("");
             colWholesalePrice.setStyle("-fx-background-color: #90EE90;");
         } else {
-            wholesaleToggle.setText("🛒 Mode: RETAIL (Click for Wholesale)");
-            wholesaleToggle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-cursor: hand;");
+            pricingModeButton.setText("🛒 Mode: RETAIL (Click for Wholesale)");
+            pricingModeButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-cursor: hand;");
             colRetailPrice.setStyle("-fx-background-color: #90EE90;");
             colWholesalePrice.setStyle("");
         }

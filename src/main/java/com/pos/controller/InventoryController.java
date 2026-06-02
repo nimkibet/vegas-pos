@@ -58,6 +58,7 @@ public class InventoryController {
 
     @FXML
     public void initialize() {
+        productsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         setupProductsTable();
         loadAllProducts();
         Platform.runLater(() -> {

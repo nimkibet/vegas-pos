@@ -112,6 +112,8 @@ public class AdminDashboardController {
     
     @FXML
     public void initialize() {
+        stockTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        approvalTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         setupStockTable();
         setupApprovalTable();
         loadQuickStats();
@@ -591,9 +593,7 @@ public class AdminDashboardController {
             // 4. Swap the scene on the existing stage (NO new Stage())
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas POS - Login");
-            stage.setWidth(420);
-            stage.setHeight(520);
-            stage.setResizable(false);
+            stage.setResizable(true);
             stage.centerOnScreen();
             stage.show();
 

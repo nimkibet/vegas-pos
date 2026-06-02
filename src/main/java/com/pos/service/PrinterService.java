@@ -179,6 +179,12 @@ public class PrinterService {
             receipt.append(String.format("%-22s %10s\n", "Change:", formatCurrencyStatic(sale.getChangeGiven())));
             receipt.append("\n");
             receipt.append("=================================\n");
+            
+            // Served by
+            if (sale.getUser() != null) {
+                receipt.append("You were served by: " + sale.getUser().getFullName() + "\n");
+            }
+            
             receipt.append("   Thank You for Shopping at\n");
             receipt.append("      Vegas Supermarket!\n");
             receipt.append("=================================\n");
@@ -282,7 +288,7 @@ public class PrinterService {
             printReceiptHeader(out, sale);
             printReceiptItems(out, sale.getItems());
             printReceiptTotals(out, sale);
-            printReceiptFooter(out);
+            printReceiptFooter(out, sale);
             
             out.write(OPEN_DRAWER);
             out.write(CUT_PAPER);
@@ -452,6 +458,13 @@ public class PrinterService {
             g2d.drawLine(margin, y, width - margin, y);
             y += 5;
             
+            g2d.setFont(normalFont);
+            // Served by
+            if (sale.getUser() != null) {
+                g2d.drawString("You were served by: " + sale.getUser().getFullName(), margin, y);
+                y += lineHeight;
+            }
+            
             g2d.setFont(boldFont);
             String thankYou = BrandingConstants.THANK_YOU_MESSAGE;
             int thankYouWidth = g2d.getFontMetrics().stringWidth(thankYou);
@@ -607,11 +620,18 @@ public class PrinterService {
         out.write(LF);
     }
     
-    private void printReceiptFooter(OutputStream out) throws Exception {
+    private void printReceiptFooter(OutputStream out, Sale sale) throws Exception {
         out.write("================================".getBytes(StandardCharsets.UTF_8));
         out.write(LF);
         
         out.write(ALIGN_CENTER);
+        
+        // Served by
+        if (sale.getUser() != null) {
+            out.write(("You were served by: " + sale.getUser().getFullName()).getBytes(StandardCharsets.UTF_8));
+            out.write(LF);
+        }
+        
         out.write(BOLD_ON);
         out.write(BrandingConstants.THANK_YOU_MESSAGE.getBytes(StandardCharsets.UTF_8));
         out.write(LF);

@@ -33,6 +33,7 @@ public class AdminDebtorsController {
     }
 
     private void setupTable() {
+        debtorsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         colCustomerName.setCellValueFactory(cellData -> 
             new SimpleStringProperty(cellData.getValue().getCustomer().getName()));
         colPhone.setCellValueFactory(cellData -> 
