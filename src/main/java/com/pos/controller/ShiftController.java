@@ -1,8 +1,11 @@
 package com.pos.controller;
 
+import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
@@ -604,5 +607,168 @@ public class ShiftController {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    /**
+     * Handle logout reconciliation workflow
+     * Prompts for drawer cash, calculates discrepancy, closes shift, and exports PDF
+     * @return true if successful (or no shift), false if user cancelled or error
+     */
+    public boolean handleLogoutReconciliation() {
+        if (!hasActiveShift()) {
+            return true; // No active shift, safe to proceed with logout
+        }
+
+        loadShiftSales();
+
+        TextInputDialog cashDialog = new TextInputDialog("0");
+        cashDialog.setTitle("Shift Reconciliation");
+        cashDialog.setHeaderText("End of Shift: Cash Reconciliation Required");
+        cashDialog.setContentText("Please count and enter the total CASH currently in the drawer (KSh):");
+
+        Optional<String> result = cashDialog.showAndWait();
+
+        if (result.isPresent()) {
+            try {
+                BigDecimal actualDeclaredCash = new BigDecimal(result.get());
+                BigDecimal expectedCashSales = currentShift.getExpectedCash() != null ? currentShift.getExpectedCash() : BigDecimal.ZERO;
+                BigDecimal startingFloat = currentShift.getStartingFloat() != null ? currentShift.getStartingFloat() : BigDecimal.ZERO;
+
+                BigDecimal expectedTotalInDrawer = expectedCashSales.add(startingFloat);
+                BigDecimal discrepancy = actualDeclaredCash.subtract(expectedTotalInDrawer);
+
+                // Update and close shift
+                currentShift.setActualCash(actualDeclaredCash);
+                currentShift.setStatus(Shift.Status.CLOSED);
+                currentShift.setEndTime(LocalDateTime.now());
+                dbManager.updateShift(currentShift);
+
+                // Resolve Target Directory
+                String userHome = System.getProperty("user.home");
+                File vegasFolder = new File(userHome + File.separator + "Desktop" + File.separator + "vegas");
+
+                if (!vegasFolder.exists()) {
+                    vegasFolder.mkdirs();
+                }
+
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss"));
+                File pdfOutputFile = new File(vegasFolder, "X-Report-" + timestamp + ".pdf");
+
+                generateImprovedPDF(pdfOutputFile, expectedTotalInDrawer, actualDeclaredCash, discrepancy);
+
+                showSuccess("Report successfully saved to:\n" + pdfOutputFile.getAbsolutePath());
+                
+                currentShift = null; // Clear shift
+                return true;
+
+            } catch (NumberFormatException e) {
+                showError("Invalid Amount: Please input a valid numeric currency value to proceed with logout.");
+                return false;
+            } catch (Exception e) {
+                logger.error("Error during logout reconciliation", e);
+                showError("Error during reconciliation: " + e.getMessage());
+                return false;
+            }
+        }
+        return false; // User cancelled
+    }
+
+    /**
+     * Generates an improved, structured end-of-shift X-Report (Z-Report)
+     */
+    public void generateImprovedPDF(File pdfOutputFile, BigDecimal expectedCashSales, BigDecimal actualDeclaredCash, BigDecimal discrepancy) {
+        try {
+            PdfWriter writer = new PdfWriter(pdfOutputFile);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            User user = currentShift.getUser();
+            String userName = user != null ? user.getFullName() : "Unknown";
+
+            // Title Block
+            Table titleTable = new Table(UnitValue.createPercentArray(new float[]{100}))
+                    .useAllAvailableWidth()
+                    .setBackgroundColor(ColorConstants.LIGHT_GRAY);
+            titleTable.addCell(new Cell().add(new Paragraph("VEGAS SUPERMARKET").setBold().setTextAlignment(TextAlignment.CENTER))
+                    .setBorder(Border.NO_BORDER));
+            titleTable.addCell(new Cell().add(new Paragraph("END-OF-SHIFT X-REPORT (Z)").setBold().setTextAlignment(TextAlignment.CENTER))
+                    .setBorder(Border.NO_BORDER));
+            document.add(titleTable);
+
+            // Metadata Block
+            Table metaTable = new Table(UnitValue.createPercentArray(new float[]{33, 34, 33}))
+                    .useAllAvailableWidth();
+            metaTable.addCell(new Cell().add(new Paragraph("Shift ID: " + currentShift.getId().substring(0, 8)))
+                    .setBorder(Border.NO_BORDER));
+            metaTable.addCell(new Cell().add(new Paragraph("Cashier: " + userName).setTextAlignment(TextAlignment.CENTER))
+                    .setBorder(Border.NO_BORDER));
+            metaTable.addCell(new Cell().add(new Paragraph("Date: " + currentShift.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))).setTextAlignment(TextAlignment.RIGHT))
+                    .setBorder(Border.NO_BORDER));
+            document.add(metaTable);
+            document.add(new Paragraph("\n"));
+
+            // 1. SYSTEM SALES BREAKDOWN
+            document.add(new Paragraph("1. SYSTEM SALES BREAKDOWN").setBold());
+            Table salesTable = new Table(UnitValue.createPercentArray(new float[]{40, 30, 30}))
+                    .useAllAvailableWidth();
+            salesTable.addHeaderCell(new Cell().add(new Paragraph("Payment Method").setBold()));
+            salesTable.addHeaderCell(new Cell().add(new Paragraph("Transaction Count").setBold().setTextAlignment(TextAlignment.CENTER)));
+            salesTable.addHeaderCell(new Cell().add(new Paragraph("Total Amount").setBold().setTextAlignment(TextAlignment.RIGHT)));
+
+            salesTable.addCell(new Cell().add(new Paragraph("Cash Sales")));
+            salesTable.addCell(new Cell().add(new Paragraph(String.valueOf(currentShift.getTransactionCount())).setTextAlignment(TextAlignment.CENTER)));
+            salesTable.addCell(new Cell().add(new Paragraph("KSh " + (currentShift.getExpectedCash() != null ? currentShift.getExpectedCash().toPlainString() : "0.00")).setTextAlignment(TextAlignment.RIGHT)));
+
+            salesTable.addCell(new Cell().add(new Paragraph("M-Pesa")));
+            salesTable.addCell(new Cell().add(new Paragraph("-").setTextAlignment(TextAlignment.CENTER)));
+            salesTable.addCell(new Cell().add(new Paragraph("KSh " + (currentShift.getMpesaTotal() != null ? currentShift.getMpesaTotal().toPlainString() : "0.00")).setTextAlignment(TextAlignment.RIGHT)));
+
+            salesTable.addCell(new Cell().add(new Paragraph("Card")));
+            salesTable.addCell(new Cell().add(new Paragraph("-").setTextAlignment(TextAlignment.CENTER)));
+            salesTable.addCell(new Cell().add(new Paragraph("KSh " + (currentShift.getCardTotal() != null ? currentShift.getCardTotal().toPlainString() : "0.00")).setTextAlignment(TextAlignment.RIGHT)));
+
+            salesTable.addCell(new Cell().add(new Paragraph("TOTAL EXPECTED SALES").setBold()));
+            salesTable.addCell(new Cell().add(new Paragraph(String.valueOf(currentShift.getTransactionCount())).setBold().setTextAlignment(TextAlignment.CENTER)));
+            salesTable.addCell(new Cell().add(new Paragraph("KSh " + currentShift.getTotalSales().toPlainString()).setBold().setTextAlignment(TextAlignment.RIGHT)));
+            
+            document.add(salesTable);
+            document.add(new Paragraph("\n"));
+
+            // 2. CASH RECONCILIATION
+            document.add(new Paragraph("2. CASH RECONCILIATION").setBold());
+            Table reconTable = new Table(UnitValue.createPercentArray(new float[]{60, 40}))
+                    .useAllAvailableWidth();
+            reconTable.addCell(new Cell().add(new Paragraph("Starting Float:")));
+            reconTable.addCell(new Cell().add(new Paragraph("KSh " + currentShift.getStartingFloat().toPlainString()).setTextAlignment(TextAlignment.RIGHT)));
+
+            reconTable.addCell(new Cell().add(new Paragraph("Expected Cash in Drawer:")));
+            reconTable.addCell(new Cell().add(new Paragraph("KSh " + expectedCashSales.toPlainString()).setTextAlignment(TextAlignment.RIGHT)));
+
+            reconTable.addCell(new Cell().add(new Paragraph("Actual Declared Cash (Input):")));
+            reconTable.addCell(new Cell().add(new Paragraph("KSh " + actualDeclaredCash.toPlainString()).setTextAlignment(TextAlignment.RIGHT)));
+
+            reconTable.addCell(new Cell().add(new Paragraph("DISCREPANCY STATUS:").setBold()));
+            String discrepancyPrefix = discrepancy.compareTo(BigDecimal.ZERO) >= 0 ? "+ KSh " : "- KSh ";
+            reconTable.addCell(new Cell().add(new Paragraph(discrepancyPrefix + discrepancy.abs().toPlainString()).setBold().setTextAlignment(TextAlignment.RIGHT)));
+            document.add(reconTable);
+
+            // Discrepancy Flag
+            Paragraph flag;
+            if (discrepancy.compareTo(BigDecimal.ZERO) < 0) {
+                flag = new Paragraph("[ ATTENTION: DEFICIT DETECTED ]").setBold().setFontColor(ColorConstants.RED).setTextAlignment(TextAlignment.CENTER);
+            } else if (discrepancy.compareTo(BigDecimal.ZERO) > 0) {
+                flag = new Paragraph("[ SURPLUS DETECTED ]").setBold().setFontColor(ColorConstants.BLUE).setTextAlignment(TextAlignment.CENTER);
+            } else {
+                flag = new Paragraph("[ BALANCED ]").setBold().setFontColor(ColorConstants.GREEN).setTextAlignment(TextAlignment.CENTER);
+            }
+            document.add(new Paragraph("\n"));
+            document.add(flag);
+
+            document.close();
+            logger.info("Improved Z-Report exported to {}", pdfOutputFile.getAbsolutePath());
+        } catch (Exception e) {
+            logger.error("Error generating improved PDF", e);
+            showError("Error generating PDF: " + e.getMessage());
+        }
     }
 }

@@ -28,3 +28,7 @@ dist/
 # Python
 __pycache__/
 *.pyc
+
+# Project specific
+vegas/
+*.bak

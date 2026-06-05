@@ -16,7 +16,7 @@
     
     <!-- Checkout Card -->
     <VBox style="-fx-background-color: white; -fx-background-radius: 16;" 
-          alignment="CENTER" spacing="0" maxWidth="400">
+          alignment="CENTER" spacing="20" prefWidth="500" prefHeight="650">
         
         <!-- Header -->
         <VBox style="-fx-background-color: #1a5f2a; -fx-padding: 20 30; -fx-background-radius: 16 16 0 0;" 
@@ -51,7 +51,7 @@
             <!-- Payment Method -->
             <VBox spacing="10">
                 <Label text="Payment Method" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
-                <HBox spacing="20">
+                <HBox spacing="20" alignment="CENTER">
                     <RadioButton fx:id="cashRadio" text="Cash" selected="true" onAction="#handlePaymentMethodChanged"
                                 style="-fx-font-size: 14; -fx-padding: 8 16;">
                         <toggleGroup>
@@ -88,7 +88,7 @@
             <VBox spacing="8">
                 <Label text="Amount Tendered (KSh)" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
                 <TextField fx:id="amountTenderedField" prefWidth="250" style="-fx-font-size: 18; -fx-padding: 12; -fx-alignment: center;"
-                          promptText="Enter amount" onAction="#handleCalculateChange" onKeyReleased="#handleCalculateChange" />
+                          promptText="Enter amount" onAction="#handleConfirmSale" onKeyReleased="#handleCalculateChange" />
             </VBox>
             
             <!-- Change Display -->
@@ -102,9 +102,9 @@
             
             <!-- Action Buttons -->
             <HBox spacing="20" alignment="CENTER">
-                <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" 
+                <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" cancelButton="true"
                        style="-fx-font-size: 14; -fx-padding: 12 30; -fx-background-color: #e2e8f0; -fx-text-fill: #4a5568; -fx-background-radius: 6;" />
-                <Button fx:id="confirmButton" text="Confirm Sale" onAction="#handleConfirmSale" 
+                <Button fx:id="confirmButton" text="Confirm Sale" onAction="#handleConfirmSale" defaultButton="true"
                        style="-fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 12 30; -fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 6;" />
             </HBox>
         </VBox>

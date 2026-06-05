@@ -1350,6 +1350,7 @@ public class POSController {
             dialog.initModality(Modality.APPLICATION_MODAL);
             dialog.initOwner(productTable.getScene().getWindow());
             dialog.setResizable(false);
+            dialog.sizeToScene();
             dialog.showAndWait();
             
             // Check if user confirmed the sale
@@ -1459,6 +1460,13 @@ public class POSController {
     @FXML
     private void handleLogout() {
         try {
+            // First, intercept logout to run the cash reconciliation workflow if there's an active shift
+            ShiftController shiftController = ShiftController.getInstance();
+            if (!shiftController.handleLogoutReconciliation()) {
+                // If reconciliation failed or was cancelled, abort the logout process
+                return;
+            }
+
             // 1. Get the existing stage (Do NOT close it)
             Stage stage = (Stage) backofficeButton.getScene().getWindow();
 
