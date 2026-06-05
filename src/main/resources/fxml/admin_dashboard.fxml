@@ -19,6 +19,7 @@
             <Region HBox.hgrow="ALWAYS" />
             <HBox spacing="20" alignment="CENTER_RIGHT">
                 <Label fx:id="userLabel" text="User: Admin" style="-fx-font-size: 13; -fx-text-fill: white;" />
+                <Button fx:id="themeToggleButton" text="🌙 Dark Mode" onAction="#toggleTheme" styleClass="btn-secondary" />
                 <Button text="Launch POS Terminal" onAction="#switchToPOS" styleClass="action-btn" />
                 <Button text="Back to POS" onAction="#handleBackToPOS" style="-fx-font-size: 12; -fx-padding: 8 16; -fx-background-color: #2f855a; -fx-text-fill: white; -fx-background-radius: 5;" />
                 <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />

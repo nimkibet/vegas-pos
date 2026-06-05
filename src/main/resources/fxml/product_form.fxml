@@ -59,7 +59,7 @@
                 <Separator style="-fx-padding: 8 0;"/>
 
                 <Label text="Bulk / Box" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
-                <CheckBox fx:id="hasBulkCheckbox" text="Has Bulk/Box Option?" style="-fx-font-size: 13;"/>
+                <CheckBox fx:id="hasBulkCheckbox" text="Has Bulk/Box Option?" style="-fx-text-fill: #333333; -fx-opacity: 1; -fx-font-size: 13;"/>
 
                 <VBox fx:id="bulkFieldsContainer" spacing="12" visible="false" managed="false">
                     <VBox spacing="6">
@@ -96,8 +96,8 @@
                 <VBox spacing="8">
                     <Label text="Variant Generation" style="-fx-font-size: 13; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
                     <HBox spacing="15">
-                        <CheckBox fx:id="generateHalfCheck" text="Auto-Generate Half (0.5)" style="-fx-font-size: 12;"/>
-                        <CheckBox fx:id="generateQuarterCheck" text="Auto-Generate Quarter (0.25)" style="-fx-font-size: 12;"/>
+                        <CheckBox fx:id="generateHalfCheck" text="Auto-Generate Half (0.5)" style="-fx-text-fill: #333333; -fx-opacity: 1; -fx-font-size: 12;"/>
+                        <CheckBox fx:id="generateQuarterCheck" text="Auto-Generate Quarter (0.25)" style="-fx-text-fill: #333333; -fx-opacity: 1; -fx-font-size: 12;"/>
                     </HBox>
                 </VBox>
             </VBox>

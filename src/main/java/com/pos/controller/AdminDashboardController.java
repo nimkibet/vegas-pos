@@ -86,9 +86,11 @@ public class AdminDashboardController {
     
     @FXML private javafx.scene.chart.LineChart<String, Number> revenueChart;
     @FXML private javafx.scene.chart.PieChart topItemsChart;
+    @FXML private Button themeToggleButton;
 
     private Stage primaryStage;
     private User currentUser;
+    private boolean isDarkMode = false;
     
     public AdminDashboardController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -606,6 +608,20 @@ public class AdminDashboardController {
         }
     }
     
+    @FXML
+    public void toggleTheme() {
+        isDarkMode = !isDarkMode;
+        Scene scene = themeToggleButton.getScene();
+        scene.getStylesheets().clear();
+        if (isDarkMode) {
+            scene.getStylesheets().add(getClass().getResource("/css/dark-theme.css").toExternalForm());
+            themeToggleButton.setText("☀️ Light Mode");
+        } else {
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            themeToggleButton.setText("🌙 Dark Mode");
+        }
+    }
+
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");
