@@ -274,4 +274,42 @@ public class SyncService {
     
     public boolean isOnline() { return isOnline; }
     public long getLastSyncTime() { return lastSyncTime; }
+
+    /**
+     * Get the current sync status
+     */
+    public SyncStatus getStatus() {
+        return new SyncStatus(isRunning, isOnline, lastSyncTime, getUnsyncedCount());
+    }
+
+    private int getUnsyncedCount() {
+        try {
+            return databaseManager.getUnsyncedSales().size() + 
+                   databaseManager.getUnsyncedActivityLogs().size();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Sync Status DTO
+     */
+    public static class SyncStatus {
+        private final boolean running;
+        private final boolean online;
+        private final long lastSyncTime;
+        private final int unsyncedCount;
+        
+        public SyncStatus(boolean running, boolean online, long lastSyncTime, int unsyncedCount) {
+            this.running = running;
+            this.online = online;
+            this.lastSyncTime = lastSyncTime;
+            this.unsyncedCount = unsyncedCount;
+        }
+        
+        public boolean isRunning() { return running; }
+        public boolean isOnline() { return online; }
+        public long getLastSyncTime() { return lastSyncTime; }
+        public int getUnsyncedCount() { return unsyncedCount; }
+    }
 }
