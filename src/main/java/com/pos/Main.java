@@ -64,19 +64,14 @@ public class Main extends Application {
     
     /**
      * Start the sync service
-     * DISABLED: Causes thread-safety issues with SQLite connection
      */
     private void startSyncService() {
-        // SyncService disabled - causes database connection issues in multi-threaded environment
-        logger.warn("Sync service disabled");
-        /*
         try {
             SyncService.getInstance().start();
             logger.info("Sync service started");
         } catch (Exception e) {
             logger.warn("Failed to start sync service: {}", e.getMessage());
         }
-        */
     }
     
     /**
