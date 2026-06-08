@@ -607,20 +607,6 @@ public class AdminDashboardController {
             logger.error("Error loading login screen", e);
         }
     }
-    
-    @FXML
-    public void toggleTheme() {
-        isDarkMode = !isDarkMode;
-        Scene scene = themeToggleButton.getScene();
-        scene.getStylesheets().clear();
-        if (isDarkMode) {
-            scene.getStylesheets().add(getClass().getResource("/css/dark-theme.css").toExternalForm());
-            themeToggleButton.setText("☀️ Light Mode");
-        } else {
-            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
-            themeToggleButton.setText("🌙 Dark Mode");
-        }
-    }
 
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);

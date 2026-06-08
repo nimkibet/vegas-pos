@@ -269,10 +269,13 @@ public class SyncService {
         try {
             String jsonPayload = createActivityLogJsonPayload(log);
             
-            java.net.URL url = new java.net.URL(apiBaseUrl + "/api/activity-logs");
+            java.net.URL url = new java.net.URL(apiBaseUrl + "/rest/v1/activity_logs");
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Prefer", "return=minimal");
             connection.setConnectTimeout(connectionTimeoutMs);
             connection.setReadTimeout(connectionTimeoutMs);
             connection.setDoOutput(true);
@@ -477,6 +480,10 @@ public class SyncService {
         public boolean isRunning() { return running; }
         public boolean isOnline() { return online; }
         public long getLastSyncTime() { return lastSyncTime; }
+        public int getUnsyncedCount() { return unsyncedCount; }
+    }
+}
+lastSyncTime; }
         public int getUnsyncedCount() { return unsyncedCount; }
     }
 }
