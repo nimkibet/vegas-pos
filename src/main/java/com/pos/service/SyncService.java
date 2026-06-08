@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Sync Service
  * Handles background synchronization with Supabase.
- * Implements Offline-First architecture: syncs sales and activity_logs to cloud backend.
+ * Implements Offline-First architecture: syncs sales, items, and activity_logs to cloud backend.
  */
 public class SyncService {
     
@@ -138,18 +138,26 @@ public class SyncService {
             int totalSuccess = 0;
             int totalFailed = 0;
             
-            // Sync Sales
+            // 1. Sync Sales
             List<Sale> unsyncedSales = databaseManager.getUnsyncedSales();
             for (Sale sale : unsyncedSales) {
                 if (syncSaleToCloud(sale)) {
                     databaseManager.markSaleAsSynced(sale.getId());
                     totalSuccess++;
+                    
+                    // 2. Sync Sale Items for this sale
+                    List<SaleItem> items = databaseManager.getSaleItems(sale.getId());
+                    for (SaleItem item : items) {
+                        if (syncSaleItemToCloud(item)) {
+                            databaseManager.markSaleItemAsSynced(item.getId());
+                        }
+                    }
                 } else {
                     totalFailed++;
                 }
             }
             
-            // Sync Activity Logs
+            // 3. Sync Activity Logs
             List<ActivityLog> unsyncedLogs = databaseManager.getUnsyncedActivityLogs();
             for (ActivityLog log : unsyncedLogs) {
                 if (syncActivityLogToCloud(log)) {
@@ -200,6 +208,34 @@ public class SyncService {
             if (connection != null) connection.disconnect();
         }
     }
+
+    private boolean syncSaleItemToCloud(SaleItem item) {
+        HttpURLConnection connection = null;
+        try {
+            String jsonPayload = createSaleItemJsonPayload(item);
+            java.net.URL url = new java.net.URL(apiBaseUrl + "/rest/v1/cloud_sale_items");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Prefer", "return=minimal");
+            connection.setConnectTimeout(connectionTimeoutMs);
+            connection.setDoOutput(true);
+            
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            }
+            
+            int code = connection.getResponseCode();
+            return (code >= 200 && code < 300);
+        } catch (Exception e) {
+            logger.error("Error syncing sale item: {}", item.getId(), e);
+            return false;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
     
     private boolean syncActivityLogToCloud(ActivityLog log) {
         HttpURLConnection connection = null;
@@ -235,12 +271,39 @@ public class SyncService {
     private String createSaleJsonPayload(Sale sale) {
         StringBuilder json = new StringBuilder();
         json.append("{");
-        json.append("\"user_id\":").append(sale.getUserId() != null ? "\"" + sale.getUserId() + "\"" : "null").append(",");
-        json.append("\"total\":").append(sale.getTotal()).append(",");
+        json.append("\"id\":\"").append(sale.getId()).append("\",");
+        json.append("\"user_id\":\"").append(sale.getUserId()).append("\",");
+        json.append("\"subtotal\":\"").append(sale.getSubtotal()).append("\",");
+        json.append("\"tax_amount\":\"").append(sale.getTaxAmount()).append("\",");
+        json.append("\"discount_amount\":\"").append(sale.getDiscountAmount()).append("\",");
+        json.append("\"total\":\"").append(sale.getTotal()).append("\",");
+        json.append("\"amount_paid\":\"").append(sale.getAmountPaid()).append("\",");
+        json.append("\"change_given\":\"").append(sale.getChangeGiven()).append("\",");
         json.append("\"payment_method\":\"").append(sale.getPaymentMethod().name()).append("\",");
+        json.append("\"status\":\"").append(sale.getStatus().name()).append("\",");
         json.append("\"notes\":").append(sale.getNotes() != null ? "\"" + escapeJson(sale.getNotes()) + "\"" : "null").append(",");
-        json.append("\"pos_id\":\"").append(sale.getId()).append("\",");
-        json.append("\"created_at\":\"").append(sale.getCreatedAt()).append("\"");
+        json.append("\"cash_amount\":\"").append(sale.getCashAmount()).append("\",");
+        json.append("\"mpesa_amount\":\"").append(sale.getMpesaAmount()).append("\",");
+        json.append("\"secondary_payment_method\":").append(sale.getSecondaryPaymentMethod() != null ? "\"" + sale.getSecondaryPaymentMethod().name() + "\"" : "null").append(",");
+        json.append("\"created_at\":\"").append(sale.getCreatedAt()).append("\",");
+        json.append("\"updated_at\":\"").append(sale.getUpdatedAt()).append("\"");
+        json.append("}");
+        return json.toString();
+    }
+
+    private String createSaleItemJsonPayload(SaleItem item) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"id\":\"").append(item.getId()).append("\",");
+        json.append("\"sale_id\":\"").append(item.getSaleId()).append("\",");
+        json.append("\"product_id\":\"").append(item.getProductId()).append("\",");
+        json.append("\"product_name\":\"").append(escapeJson(item.getProductName())).append("\",");
+        json.append("\"product_barcode\":\"").append(item.getProductBarcode()).append("\",");
+        json.append("\"quantity\":").append((int) item.getQuantity()).append(",");
+        json.append("\"unit_price\":\"").append(item.getUnitPrice()).append("\",");
+        json.append("\"total_price\":\"").append(item.getTotalPrice()).append("\",");
+        json.append("\"is_synced\":true,");
+        json.append("\"created_at\":\"").append(item.getCreatedAt()).append("\"");
         json.append("}");
         return json.toString();
     }
@@ -248,6 +311,7 @@ public class SyncService {
     private String createActivityLogJsonPayload(ActivityLog log) {
         StringBuilder json = new StringBuilder();
         json.append("{");
+        // 'id' is generated by Supabase (UUID), we send local ID to 'pos_id'
         json.append("\"user_id\":\"").append(log.getUserId()).append("\",");
         json.append("\"user_name\":\"").append(escapeJson(log.getUserName())).append("\",");
         json.append("\"action_type\":\"").append(log.getActionType().name()).append("\",");
