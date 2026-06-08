@@ -31,6 +31,7 @@ public class SyncService {
     private final DatabaseManager databaseManager;
     private final ScheduledExecutorService scheduler;
     private String apiBaseUrl;
+    private String apiKey;
     private final int syncIntervalMinutes;
     private final int connectionTimeoutMs;
     
@@ -44,7 +45,9 @@ public class SyncService {
     private SyncService() {
         this.databaseManager = DatabaseManager.getInstance();
         this.scheduler = Executors.newScheduledThreadPool(2);
-        this.apiBaseUrl = "https://api.example.com";
+        // Supabase configuration from .env.local
+        this.apiBaseUrl = "https://gtjwctckznenodikmgye.supabase.co";
+        this.apiKey = "sb_publishable_nenFH56WRAtYgBaXPjrywQ_ExtvVz3a";
         this.syncIntervalMinutes = 5;
         this.connectionTimeoutMs = 10000;
         this.isRunning = false;
@@ -68,6 +71,13 @@ public class SyncService {
     public void setApiBaseUrl(String url) {
         this.apiBaseUrl = url;
         logger.info("Sync API URL set to: {}", url);
+    }
+
+    /**
+     * Set the API Key (Supabase Anon Key)
+     */
+    public void setApiKey(String key) {
+        this.apiKey = key;
     }
     
     /**
@@ -228,10 +238,13 @@ public class SyncService {
         try {
             String jsonPayload = createSaleJsonPayload(sale);
             
-            java.net.URL url = new java.net.URL(apiBaseUrl + "/api/sales");
+            java.net.URL url = new java.net.URL(apiBaseUrl + "/rest/v1/cloud_sales");
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Prefer", "return=minimal");
             connection.setConnectTimeout(connectionTimeoutMs);
             connection.setReadTimeout(connectionTimeoutMs);
             connection.setDoOutput(true);
@@ -315,6 +328,8 @@ public class SyncService {
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
             connection.setConnectTimeout(connectionTimeoutMs);
             connection.setReadTimeout(connectionTimeoutMs);
             connection.setDoOutput(true);
@@ -480,10 +495,6 @@ public class SyncService {
         public boolean isRunning() { return running; }
         public boolean isOnline() { return online; }
         public long getLastSyncTime() { return lastSyncTime; }
-        public int getUnsyncedCount() { return unsyncedCount; }
-    }
-}
-lastSyncTime; }
         public int getUnsyncedCount() { return unsyncedCount; }
     }
 }
