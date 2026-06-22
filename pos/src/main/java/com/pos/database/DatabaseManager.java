@@ -95,6 +95,24 @@ public class DatabaseManager {
         }
         return instance;
     }
+
+    public static synchronized void resetInstanceForTest(String testDbName) {
+        instance = new DatabaseManager(testDbName);
+        isInitialized = false;
+    }
+
+    private DatabaseManager(String dbFileName) {
+        this.config = loadConfig();
+        this.terminalMode = TerminalMode.MASTER;
+        String dbPath = getAppDataPath() + File.separator + testDbNameHelper(dbFileName);
+        this.jdbcUrl = "jdbc:sqlite:" + dbPath;
+        this.dbPath = dbPath;
+        logger.info("Database test instance initialized - Mode: {}, Path: {}", terminalMode, dbPath);
+    }
+
+    private static String testDbNameHelper(String dbFileName) {
+        return dbFileName;
+    }
     
     private Properties loadConfig() {
         Properties props = new Properties();
@@ -149,18 +167,18 @@ public class DatabaseManager {
      * @throws SQLException if initialization fails
      */
     public void initialize() throws SQLException {
-        try (Connection conn = connect();
-             Statement stmt = conn.createStatement()) {
-            ensureSupplierStockInTables(stmt);
-            ensureCustomerCreditSchema(stmt);
-            conn.commit();
-        }
         if (!isInitialized) {
             initializeSchema();
             // IMPORTANT: seedDummyData must be called AFTER initializeSchema() returns
             // to ensure the first connection is fully closed before seeding starts
             seedDummyData();
             isInitialized = true;
+        }
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+            ensureSupplierStockInTables(stmt);
+            ensureCustomerCreditSchema(stmt);
+            conn.commit();
         }
     }
     
@@ -230,13 +248,24 @@ public class DatabaseManager {
                       pieces_per_bulk INTEGER DEFAULT 1,
                       parent_barcode TEXT DEFAULT NULL,
                       deduction_ratio REAL DEFAULT 1.0,
-                      unit_type TEXT DEFAULT 'Pieces'
+                      unit_type TEXT DEFAULT 'Pieces',
+                      parent_wholesale_barcode TEXT DEFAULT NULL,
+                      conversion_yield INTEGER DEFAULT 0,
+                      loose_remainder_stock INTEGER DEFAULT 0,
+                      bundle_size INTEGER DEFAULT 1,
+                      raw_piece_yield INTEGER DEFAULT 0,
+                      volume_qty INTEGER DEFAULT 0,
+                      volume_price REAL DEFAULT 0.0
                   )
               """);
               
               ensureProductBulkColumns(stmt);
               ensureProductVariantColumns(stmt);
               ensureProductUnitTypeColumns(stmt);
+              ensureAutoConversionColumns(stmt);
+              ensureProductVolumeColumns(stmt);
+              ensureSystemLogsTable(stmt);
+              ensureSaleItemCogsColumn(stmt);
             
             stmt.execute("""
                  CREATE TABLE IF NOT EXISTS sales (
@@ -275,6 +304,7 @@ public class DatabaseManager {
                     total_price TEXT NOT NULL,
                     is_synced INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
+                    unit_cogs REAL DEFAULT 0.0,
                     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
                     FOREIGN KEY (product_id) REFERENCES products(id)
                 )
@@ -386,6 +416,15 @@ public class DatabaseManager {
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_supplier_transactions_created_at ON supplier_transactions(created_at)");
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_supplier_transactions_status ON supplier_transactions(status)");
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_supplier_transaction_items_tx ON supplier_transaction_items(transaction_id)");
+
+        // Schema upgrade for payment source + partial offset tracking (idempotent)
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE supplier_transactions ADD COLUMN payment_source TEXT DEFAULT 'Cash (From Shelf)'",
+            "ALTER TABLE supplier_transactions ADD COLUMN debtor_id TEXT DEFAULT NULL",
+            "ALTER TABLE supplier_transactions ADD COLUMN debtor_offset REAL DEFAULT 0.0",
+            "ALTER TABLE supplier_transactions ADD COLUMN cash_paid REAL DEFAULT 0.0",
+            "ALTER TABLE supplier_transactions ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0"
+        });
     }
     
     /**
@@ -413,6 +452,45 @@ public class DatabaseManager {
         });
     }
 
+    private void ensureAutoConversionColumns(Statement stmt) {
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE products ADD COLUMN parent_wholesale_barcode TEXT DEFAULT NULL",
+            "ALTER TABLE products ADD COLUMN conversion_yield INTEGER DEFAULT 0",
+            "ALTER TABLE products ADD COLUMN loose_remainder_stock INTEGER DEFAULT 0",
+            "ALTER TABLE products ADD COLUMN bundle_size INTEGER DEFAULT 1",
+            "ALTER TABLE products ADD COLUMN raw_piece_yield INTEGER DEFAULT 0"
+        });
+    }
+
+    private void ensureProductVolumeColumns(Statement stmt) {
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE products ADD COLUMN volume_qty INTEGER DEFAULT 0",
+            "ALTER TABLE products ADD COLUMN volume_price REAL DEFAULT 0.0"
+        });
+    }
+
+    private void ensureSystemLogsTable(Statement stmt) {
+        try {
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS system_logs (
+                    id TEXT PRIMARY KEY,
+                    barcode TEXT,
+                    type TEXT,
+                    message TEXT,
+                    created_at TEXT NOT NULL
+                )
+            """);
+        } catch (SQLException e) {
+            logger.warn("Could not create system_logs table: {}", e.getMessage());
+        }
+    }
+
+    private void ensureSaleItemCogsColumn(Statement stmt) {
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE sale_items ADD COLUMN unit_cogs REAL DEFAULT 0.0"
+        });
+    }
+
     /**
      * Customer credit / A/R tables and sales columns (idempotent for existing databases).
      */
@@ -426,6 +504,12 @@ public class DatabaseManager {
         // Safe ALTER TABLE blocks to upgrade existing databases
         try { stmt.execute("ALTER TABLE sales ADD COLUMN customer_id TEXT"); } catch (Exception e) {}
         try { stmt.execute("ALTER TABLE sales ADD COLUMN payment_status TEXT DEFAULT 'PAID'"); } catch (Exception e) {}
+
+        // Credit limit column on customers (idempotent)
+        applyAlterMigrations(stmt, new String[]{
+            "ALTER TABLE customers ADD COLUMN credit_limit REAL DEFAULT 0.0",
+            "ALTER TABLE customers ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0"
+        });
         
         stmt.execute("""
                 CREATE TABLE IF NOT EXISTS customers (
@@ -509,51 +593,12 @@ public class DatabaseManager {
                 }
             }
             
-            // Check and seed products
+            // Check and seed products (removed dummy products seeding to allow real products database)
             try (Statement stmt = conn.createStatement();
                  ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM products")) {
                 rs.next();
                 if (rs.getInt(1) == 0) {
-                    logger.info("Seeding default products...");
-                    
-                    String[][] seedProducts = {
-                        {"Bread", "Loaf Bread", "Bakery", "50.00", "45.00", "50"},
-                        {"Milk", "Fresh Milk 500ml", "Dairy", "60.00", "55.00", "100"},
-                        {"Soda", "Soft Drink 500ml", "Beverages", "40.00", "35.00", "200"},
-                        {"Cooking Oil", "Cooking Oil 1L", "Cooking", "120.00", "110.00", "75"},
-                        {"Sugar", "Sugar 1kg", "Baking", "100.00", "90.00", "60"},
-                        {"Rice", "Rice 2kg", "Staples", "180.00", "165.00", "80"},
-                        {"Tea Bags", "Tea Bags 50s", "Beverages", "80.00", "72.00", "120"},
-                        {"Soap", "Bar Soap", "Household", "30.00", "25.00", "150"},
-                        {"Toothpaste", "Toothpaste", "Personal Care", "70.00", "60.00", "90"},
-                        {"Maize Flour", "Maize Flour 2kg", "Staples", "120.00", "108.00", "55"}
-                    };
-                    
-                    try (PreparedStatement pstmt = conn.prepareStatement(
-                            "INSERT INTO products (id, barcode, name, description, category, retail_price, wholesale_price, stock_quantity, min_stock_level, supplier, status, is_active, is_synced, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
-                        
-                        for (int i = 0; i < seedProducts.length; i++) {
-                            String[] p = seedProducts[i];
-                            pstmt.setString(1, "550e8400-e29b-41d4-a716-4466554401" + String.format("%02d", i));
-                            pstmt.setString(2, "5000000" + String.format("%02d", i + 1));
-                            pstmt.setString(3, p[0]);
-                            pstmt.setString(4, p[1]);
-                            pstmt.setString(5, p[2]);
-                            pstmt.setString(6, p[3]);
-                            pstmt.setString(7, p[4]);
-                            pstmt.setInt(8, Integer.parseInt(p[5]));
-                            pstmt.setInt(9, 10);
-                            pstmt.setString(10, "Default Supplier");
-                            pstmt.setString(11, "APPROVED");
-                            pstmt.setInt(12, 1);
-                            pstmt.setInt(13, 0);
-                            pstmt.setString(14, "2024-01-01 00:00:00");
-                            pstmt.setString(15, "2024-01-01 00:00:00");
-                            pstmt.executeUpdate();
-                        }
-                    }
-                    
-                    logger.info("Default products seeded");
+                    logger.info("Database is empty of products, ready for real products.");
                 }
             }
             
@@ -564,6 +609,69 @@ public class DatabaseManager {
                 conn.close();
             }
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // DATABASE RESET  (Clean Start)
+    // -------------------------------------------------------------------------
+    /**
+     * Wipes all transactional and product data from the database while
+     * preserving the user accounts so the admin can still log in.
+     *
+     * <p>Tables cleared (in dependency order to respect FK constraints):
+     * <ul>
+     *   <li>sale_items, customer_payments, sync_log (children first)</li>
+     *   <li>sales, shifts, activity_logs, system_logs</li>
+     *   <li>supplier_transaction_items → supplier_transactions</li>
+     *   <li>products, customers, suppliers</li>
+     * </ul>
+     *
+     * <p>The {@code users} table is intentionally left intact.
+     *
+     * @throws SQLException if any DELETE fails
+     */
+    public void resetDatabase() throws SQLException {
+        logger.warn("DATABASE RESET requested – erasing all transactional data.");
+        synchronized (dbLock) {
+            try (Connection conn = connect();
+                 Statement stmt = conn.createStatement()) {
+
+                // Disable FK enforcement temporarily so we can delete in any order
+                stmt.execute("PRAGMA foreign_keys = OFF");
+
+                // --- Children first ---
+                stmt.execute("DELETE FROM sale_items");
+                stmt.execute("DELETE FROM customer_payments");
+                stmt.execute("DELETE FROM sync_log");
+                stmt.execute("DELETE FROM supplier_transaction_items");
+
+                // --- Parents ---
+                stmt.execute("DELETE FROM sales");
+                stmt.execute("DELETE FROM shifts");
+                stmt.execute("DELETE FROM activity_logs");
+                stmt.execute("DELETE FROM system_logs");
+                stmt.execute("DELETE FROM supplier_transactions");
+
+                // --- Master data ---
+                stmt.execute("DELETE FROM products");
+                stmt.execute("DELETE FROM customers");
+                stmt.execute("DELETE FROM suppliers");
+
+                // Re-enable FK enforcement
+                stmt.execute("PRAGMA foreign_keys = ON");
+
+                // Reclaim freed pages
+                stmt.execute("VACUUM");
+
+                conn.commit();
+                logger.info("Database reset complete – all data wiped.");
+            }
+        }
+
+        // Reset the initialization flag so seedDummyData() can run again
+        // if initialize() is ever called, but do NOT call it here – users
+        // are preserved and the app is still running.
+        logger.info("Database reset successful. Product catalogue is empty; users are intact.");
     }
 
     public List<Map<String, Object>> getRecentSales(int limit) {
@@ -960,8 +1068,9 @@ public class DatabaseManager {
         String sql = """
             INSERT INTO products (id, barcode, name, description, category, retail_price,
             wholesale_price, stock_quantity, min_stock_level, image_path, supplier, status, is_active, is_synced, created_at, updated_at,
-            bulk_barcode, bulk_price, pieces_per_bulk, parent_barcode, deduction_ratio, unit_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            bulk_barcode, bulk_price, pieces_per_bulk, parent_barcode, deduction_ratio, unit_type,
+            parent_wholesale_barcode, conversion_yield, loose_remainder_stock, bundle_size, raw_piece_yield, volume_qty, volume_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
         
         try (Connection conn = connect();
@@ -990,6 +1099,13 @@ public class DatabaseManager {
             pstmt.setString(20, product.getParentBarcode());
             pstmt.setDouble(21, product.getDeductionRatio());
             pstmt.setString(22, product.getUnitType() != null ? product.getUnitType() : "Pieces");
+            pstmt.setString(23, product.getParentWholesaleBarcode());
+            pstmt.setInt(24, product.getConversionYield());
+            pstmt.setInt(25, product.getLooseRemainderStock());
+            pstmt.setInt(26, product.getBundleSize());
+            pstmt.setInt(27, product.getRawPieceYield());
+            pstmt.setInt(28, product.getVolumeQty());
+            pstmt.setDouble(29, product.getVolumePrice());
             
             pstmt.executeUpdate();
             conn.commit();
@@ -1002,7 +1118,9 @@ public class DatabaseManager {
             retail_price = ?, wholesale_price = ?, stock_quantity = ?, min_stock_level = ?,
             image_path = ?, supplier = ?, status = ?, is_active = ?, is_synced = ?,
             bulk_barcode = ?, bulk_price = ?, pieces_per_bulk = ?, parent_barcode = ?, 
-            deduction_ratio = ?, unit_type = ?, updated_at = ? WHERE id = ?
+            deduction_ratio = ?, unit_type = ?, parent_wholesale_barcode = ?, 
+            conversion_yield = ?, loose_remainder_stock = ?, bundle_size = ?, raw_piece_yield = ?,
+            volume_qty = ?, volume_price = ?, updated_at = ? WHERE id = ?
         """;
         
         try (Connection conn = connect();
@@ -1028,8 +1146,15 @@ public class DatabaseManager {
             pstmt.setString(17, product.getParentBarcode());
             pstmt.setDouble(18, product.getDeductionRatio());
             pstmt.setString(19, product.getUnitType() != null ? product.getUnitType() : "Pieces");
-            pstmt.setString(20, LocalDateTime.now().format(DATE_TIME_FORMATTER));
-            pstmt.setString(21, product.getId());
+            pstmt.setString(20, product.getParentWholesaleBarcode());
+            pstmt.setInt(21, product.getConversionYield());
+            pstmt.setInt(22, product.getLooseRemainderStock());
+            pstmt.setInt(23, product.getBundleSize());
+            pstmt.setInt(24, product.getRawPieceYield());
+            pstmt.setInt(25, product.getVolumeQty());
+            pstmt.setDouble(26, product.getVolumePrice());
+            pstmt.setString(27, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+            pstmt.setString(28, product.getId());
             
             pstmt.executeUpdate();
             conn.commit();
@@ -1037,7 +1162,7 @@ public class DatabaseManager {
     }
 
     public void updateProductStock(String productId, double newQuantity) throws SQLException {
-        String sql = "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?";
+        String sql = "UPDATE products SET stock_quantity = ?, is_synced = 0, updated_at = ? WHERE id = ?";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -1051,7 +1176,7 @@ public class DatabaseManager {
     }
     
     void updateProductStock(Connection conn, String productId, double quantityDelta) throws SQLException {
-        String sql = "UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?";
+        String sql = "UPDATE products SET stock_quantity = stock_quantity + ?, is_synced = 0, updated_at = ? WHERE id = ?";
         
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setDouble(1, quantityDelta);
@@ -1145,7 +1270,8 @@ public class DatabaseManager {
             for (SaleItem item : sale.getItems()) {
                 insertSaleItem(conn, item, sale.getId());
             }
-            // Deduct stock
+            /*
+            // Deduct stock (moved to POSController cart addition to support real-time negative sell-through and auto-conversion)
             for (SaleItem item : sale.getItems()) {
                 Optional<Product> pOpt = findProductByIdInternal(conn, item.getProductId());
                 if (pOpt.isPresent()) {
@@ -1172,12 +1298,17 @@ public class DatabaseManager {
                     }
                 }
             }
+            */
             
             // Initial credit payment is already stored in sales.amount_paid.
             // We do NOT insert it into customer_payments here to avoid double-counting.
             // customer_payments will ONLY hold subsequent ledger payments.
             
             conn.commit();
+
+            if (sale.getCustomerId() != null && "CREDIT".equals(sale.getPaymentStatus())) {
+                updateDebtorBalance(sale.getCustomerId());
+            }
         }
     }
 
@@ -1205,8 +1336,8 @@ public class DatabaseManager {
     private void insertSaleItem(Connection conn, SaleItem item, String saleId) throws SQLException {
         String sql = """
             INSERT INTO sale_items (id, sale_id, product_id, product_name, product_barcode,
-            quantity, unit_price, total_price, is_synced, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            quantity, unit_price, total_price, is_synced, created_at, unit_cogs)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
         
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -1220,6 +1351,7 @@ public class DatabaseManager {
             pstmt.setString(8, item.getTotalPrice().toPlainString());
             pstmt.setInt(9, item.isSynced() ? 1 : 0);
             pstmt.setString(10, item.getCreatedAt().format(DATE_TIME_FORMATTER));
+            pstmt.setDouble(11, item.getUnitCogs());
             
             pstmt.executeUpdate();
         }
@@ -1288,19 +1420,108 @@ public class DatabaseManager {
     public List<Sale> getUnsyncedSales() throws SQLException {
         List<Sale> sales = new ArrayList<>();
         String sql = "SELECT * FROM sales WHERE is_synced = 0";
-        
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
-            
+
             while (rs.next()) {
                 Sale sale = mapResultSetToSale(rs);
                 sale.setItems(getSaleItems(sale.getId()));
                 sales.add(sale);
             }
         }
-        
+
         return sales;
+    }
+
+    public List<Customer> getUnsyncedCustomers() throws SQLException {
+        List<Customer> customers = new ArrayList<>();
+        String sql = "SELECT * FROM customers WHERE is_synced = 0";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                customers.add(mapResultSetToCustomer(rs));
+            }
+        }
+
+        return customers;
+    }
+
+    public List<SupplierTransaction> getUnsyncedSupplierTransactions() throws SQLException {
+        List<SupplierTransaction> list = new ArrayList<>();
+        String sql = "SELECT * FROM supplier_transactions WHERE is_synced = 0";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(mapResultSetToSupplierTransaction(rs));
+            }
+        }
+        return list;
+    }
+
+    public void markCustomerAsSynced(String id) throws SQLException {
+        String sql = "UPDATE customers SET is_synced = 1 WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, id);
+            pstmt.executeUpdate();
+            conn.commit();
+        }
+    }
+
+    public void markSupplierTransactionAsSynced(String id) throws SQLException {
+        String sql = "UPDATE supplier_transactions SET is_synced = 1 WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, id);
+            pstmt.executeUpdate();
+            conn.commit();
+        }
+    }
+
+    /**
+     * Recalculates debtor balance and triggers cloud sync.
+     */
+    public void updateDebtorBalance(String customerId) {
+        try {
+            Optional<Customer> customerOpt = findCustomerById(customerId);
+            if (customerOpt.isPresent()) {
+                Customer customer = customerOpt.get();
+                List<Sale> unpaidSales = getUnpaidSalesForCustomer(customerId);
+                BigDecimal totalDebt = BigDecimal.ZERO;
+                int pendingBatches = 0;
+
+                for (Sale sale : unpaidSales) {
+                    BigDecimal totalPaid = getTotalPaidForSale(sale.getId());
+                    BigDecimal balance = sale.getTotal().subtract(totalPaid);
+                    if (balance.compareTo(BigDecimal.ZERO) > 0) {
+                        totalDebt = totalDebt.add(balance);
+                        pendingBatches++;
+                    }
+                }
+
+                CustomerDebtSummary summary = new CustomerDebtSummary(customer, totalDebt, pendingBatches);
+
+                // Reset sync flag locally since data changed
+                String sql = "UPDATE customers SET is_synced = 0 WHERE id = ?";
+                try (Connection conn = connect();
+                     PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, customerId);
+                    pstmt.executeUpdate();
+                    conn.commit();
+                }
+
+                // Trigger real-time sync
+                com.pos.service.SyncService.getInstance().syncDebtorToCloud(summary);
+            }
+        } catch (SQLException e) {
+            logger.error("Error updating debtor balance/sync for {}", customerId, e);
+        }
     }
     
     public void markSaleAsSynced(String saleId) throws SQLException {
@@ -1476,6 +1697,21 @@ public class DatabaseManager {
             p.setUnitType("Pieces");
         }
         
+        p.setParentWholesaleBarcode(rs.getString("parent_wholesale_barcode"));
+        int yield = rs.getInt("conversion_yield");
+        p.setConversionYield(rs.wasNull() ? 0 : yield);
+        int looseStock = rs.getInt("loose_remainder_stock");
+        p.setLooseRemainderStock(rs.wasNull() ? 0 : looseStock);
+        int bundleSize = rs.getInt("bundle_size");
+        p.setBundleSize(rs.wasNull() ? 1 : bundleSize);
+        int rawYield = rs.getInt("raw_piece_yield");
+        p.setRawPieceYield(rs.wasNull() ? 0 : rawYield);
+        
+        int volumeQty = rs.getInt("volume_qty");
+        p.setVolumeQty(rs.wasNull() ? 0 : volumeQty);
+        double volumePrice = rs.getDouble("volume_price");
+        p.setVolumePrice(rs.wasNull() ? 0.0 : volumePrice);
+        
         return p;
     }
 
@@ -1513,6 +1749,11 @@ public class DatabaseManager {
         item.setTotalPrice(new BigDecimal(rs.getString("total_price")));
         item.setSynced(rs.getInt("is_synced") == 1);
         item.setCreatedAt(LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER));
+        try {
+            item.setUnitCogs(rs.getDouble("unit_cogs"));
+        } catch (Exception e) {
+            item.setUnitCogs(0.0);
+        }
         return item;
     }
     
@@ -1628,7 +1869,6 @@ public class DatabaseManager {
     
     public void markActivityLogAsSynced(String logId) throws SQLException {
         String sql = "UPDATE activity_logs SET is_synced = 1 WHERE id = ?";
-        
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, logId);
@@ -1636,6 +1876,42 @@ public class DatabaseManager {
             conn.commit();
         }
     }
+
+    public int getUnsyncedProductsCount() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM products WHERE is_synced = 0";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }
+        return 0;
+    }
+
+    public List<Product> getUnsyncedProducts() throws SQLException {
+        List<Product> products = new ArrayList<>();
+        String sql = "SELECT * FROM products WHERE is_synced = 0";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                products.add(mapResultSetToProduct(rs));
+            }
+        }
+        return products;
+    }
+
+    public void markProductAsSynced(String id) throws SQLException {
+        String sql = "UPDATE products SET is_synced = 1 WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, id);
+            pstmt.executeUpdate();
+            conn.commit();
+        }
+    }
+
     
     /**
      * Persists a supplier stock-in: header, line items, increments {@code products.stock_quantity} per line,
@@ -1674,8 +1950,8 @@ public class DatabaseManager {
         }
         
         String insertTx = """
-            INSERT INTO supplier_transactions (id, supplier_name, total_cost, status, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO supplier_transactions (id, supplier_name, total_cost, status, created_at, payment_source, debtor_id, debtor_offset, cash_paid, is_synced)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
         String insertLine = """
             INSERT INTO supplier_transaction_items (id, transaction_id, product_id, quantity_received, buying_price)
@@ -1691,6 +1967,11 @@ public class DatabaseManager {
             pstmtTx.setDouble(3, trans.getTotalCost().doubleValue());
             pstmtTx.setString(4, st);
             pstmtTx.setString(5, trans.getCreatedAt().format(DATE_TIME_FORMATTER));
+            pstmtTx.setString(6, trans.getPaymentSource() != null ? trans.getPaymentSource() : "Cash (From Shelf)");
+            pstmtTx.setString(7, trans.getDebtorId());
+            pstmtTx.setDouble(8, trans.getDebtorOffset().doubleValue());
+            pstmtTx.setDouble(9, trans.getCashPaid().doubleValue());
+            pstmtTx.setInt(10, trans.isSynced() ? 1 : 0);
             pstmtTx.executeUpdate();
             
             for (SupplierTransactionItem it : items) {
@@ -1713,31 +1994,15 @@ public class DatabaseManager {
             }
             
             conn.commit();
+
+            // Trigger real-time sync for the transaction
+            com.pos.service.SyncService.getInstance().syncSupplierTransaction(trans);
         }
     }
     
-    /**
-     * Increments {@code products.stock_quantity} for each stock-in line (must run inside an open transaction).
-     */
     private void processStockIn(Connection conn, List<SupplierTransactionItem> items) throws SQLException {
         for (SupplierTransactionItem item : items) {
-            Optional<Product> pOpt = findProductByIdInternal(conn, item.getProductId());
-            if (pOpt.isPresent()) {
-                Product p = pOpt.get();
-                if (p.getParentBarcode() != null && !p.getParentBarcode().isEmpty()) {
-                    Optional<Product> parentOpt = findProductByBarcodeInternal(conn, p.getParentBarcode());
-                    if (parentOpt.isPresent()) {
-                        double parentDelta = item.getQuantityReceived() * p.getDeductionRatio();
-                        updateProductStock(conn, parentOpt.get().getId(), parentDelta);
-                    } else {
-                        updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
-                    }
-                } else {
-                    updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
-                }
-            } else {
-                updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
-            }
+            updateProductStock(conn, item.getProductId(), item.getQuantityReceived());
         }
     }
     
@@ -1782,18 +2047,53 @@ public class DatabaseManager {
         return names;
     }
     
+    public List<String> getAllCategories() throws SQLException {
+        List<String> categories = new ArrayList<>();
+        categories.add("General");
+        categories.add("Bakery");
+        categories.add("Dairy");
+        categories.add("Beverages");
+        categories.add("Cooking");
+        categories.add("Baking");
+        categories.add("Staples");
+        categories.add("Household");
+        categories.add("Personal Care");
+        categories.add("Produce");
+        categories.add("Frozen");
+        categories.add("Snacks");
+        
+        String sql = "SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND TRIM(category) != '' ORDER BY category COLLATE NOCASE";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                String cat = rs.getString(1);
+                if (!categories.contains(cat)) {
+                    categories.add(cat);
+                }
+            }
+        }
+        return categories;
+    }
+    
     private SupplierTransaction mapResultSetToSupplierTransaction(ResultSet rs) throws SQLException {
         BigDecimal total = BigDecimal.valueOf(rs.getDouble("total_cost"));
         if (rs.wasNull()) {
             total = BigDecimal.ZERO;
         }
-        return new SupplierTransaction(
+        SupplierTransaction st = new SupplierTransaction(
             rs.getString("id"),
             rs.getString("supplier_name"),
             total,
             rs.getString("status"),
             LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER)
         );
+        try { st.setPaymentSource(rs.getString("payment_source")); } catch (SQLException e) {}
+        try { st.setDebtorId(rs.getString("debtor_id")); } catch (SQLException e) {}
+        try { st.setDebtorOffset(BigDecimal.valueOf(rs.getDouble("debtor_offset"))); } catch (SQLException e) {}
+        try { st.setCashPaid(BigDecimal.valueOf(rs.getDouble("cash_paid"))); } catch (SQLException e) {}
+        try { st.setSynced(rs.getInt("is_synced") == 1); } catch (SQLException e) {}
+        return st;
     }
     
     public Optional<Customer> findCustomerById(String id) throws SQLException {
@@ -1827,6 +2127,130 @@ public class DatabaseManager {
         }
         
         return customers;
+    }
+
+    /**
+     * Reduces a debtor's outstanding balance by recording a payment against their
+     * oldest unpaid sale(s). Called when a stock-in is paid via "Debt (Offset Account)".
+     *
+     * @param debtorId   The customer ID whose balance is being offset
+     * @param amount     The amount to reduce (the total cost of the shipment)
+     * @throws SQLException if any DB operation fails
+     */
+    public void reduceDebtorBalance(String debtorId, BigDecimal amount) throws SQLException {
+        if (debtorId == null || debtorId.isBlank() || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        // Fetch unpaid sales for this customer, ordered oldest first
+        List<Sale> unpaidSales = getUnpaidSalesForCustomer(debtorId);
+        BigDecimal remaining = amount;
+
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(
+                 "INSERT INTO customer_payments (id, sale_id, amount_paid, payment_date) VALUES (?, ?, ?, ?)")) {
+
+            for (Sale sale : unpaidSales) {
+                if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+
+                BigDecimal totalPaid = getTotalPaidForSale(sale.getId());
+                BigDecimal balance   = sale.getTotal().subtract(totalPaid);
+                if (balance.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                BigDecimal apply = remaining.min(balance);
+                pstmt.setString(1, java.util.UUID.randomUUID().toString());
+                pstmt.setString(2, sale.getId());
+                pstmt.setDouble(3, apply.doubleValue());
+                pstmt.setString(4, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+                pstmt.executeUpdate();
+                remaining = remaining.subtract(apply);
+            }
+            conn.commit();
+            logger.info("Reduced debtor {} balance by {} (KSh), {} remaining unallocated",
+                    debtorId, amount, remaining);
+            
+            // Trigger sync
+            updateDebtorBalance(debtorId);
+        }
+    }
+
+    /**
+     * Returns the customer's live outstanding balance — computed fresh from the DB.
+     * Always accurate because it sums all unpaid sale amounts minus all recorded payments.
+     */
+    public BigDecimal getCustomerCurrentBalance(String customerId) throws SQLException {
+        List<Sale> unpaid = getUnpaidSalesForCustomer(customerId);
+        BigDecimal balance = BigDecimal.ZERO;
+        for (Sale s : unpaid) {
+            BigDecimal paid = getTotalPaidForSale(s.getId());
+            BigDecimal due  = s.getTotal().subtract(paid);
+            if (due.compareTo(BigDecimal.ZERO) > 0) balance = balance.add(due);
+        }
+        return balance;
+    }
+
+    /**
+     * Persists an updated credit limit for a customer. 0 = unlimited.
+     */
+    public void updateCustomerCreditLimit(String customerId, double newLimit) throws SQLException {
+        String sql = "UPDATE customers SET credit_limit = ? WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, newLimit);
+            ps.setString(2, customerId);
+            ps.executeUpdate();
+            conn.commit();
+            logger.info("Credit limit for customer {} set to KSh {}", customerId, newLimit);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // PARTIAL DEBT OFFSET  (split: some debt cleared, rest paid in cash)
+    // -------------------------------------------------------------------------
+    /**
+     * Processes a split shipment payment:
+     * <ul>
+     *   <li>Reduces the debtor's outstanding balance by {@code debtorOffset}</li>
+     *   <li>Records {@code cashPaid = totalCost - debtorOffset} as the cash portion</li>
+     *   <li>Updates the supplier_transaction row with the split breakdown</li>
+     * </ul>
+     *
+     * @param transactionId   the already-inserted supplier_transaction row id
+     * @param debtorId        customer id whose balance is being reduced
+     * @param debtorOffset    amount cleared against the debtor's balance
+     * @param totalCost       full shipment value
+     * @throws SQLException   if any DB operation fails
+     */
+    public void processPartialDebtOffset(String transactionId, String debtorId,
+                                         BigDecimal debtorOffset, BigDecimal totalCost)
+            throws SQLException {
+
+        if (debtorOffset == null || debtorOffset.compareTo(BigDecimal.ZERO) <= 0) {
+            logger.warn("processPartialDebtOffset called with zero/null offset — nothing to do");
+            return;
+        }
+        if (debtorOffset.compareTo(totalCost) > 0) {
+            throw new IllegalArgumentException(
+                "Debt offset (" + debtorOffset + ") cannot exceed total shipment cost (" + totalCost + ")");
+        }
+
+        BigDecimal cashPaid = totalCost.subtract(debtorOffset);
+
+        // 1. Reduce the debtor's unpaid sales balances
+        reduceDebtorBalance(debtorId, debtorOffset);
+
+        // 2. Stamp the split figures on the transaction row
+        String sql = "UPDATE supplier_transactions SET debtor_offset = ?, cash_paid = ? WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, debtorOffset.doubleValue());
+            ps.setDouble(2, cashPaid.doubleValue());
+            ps.setString(3, transactionId);
+            ps.executeUpdate();
+            conn.commit();
+        }
+
+        logger.info("Partial debt offset applied: transactionId={}, debtorOffset=KSh {}, cashPaid=KSh {}",
+                transactionId, debtorOffset, cashPaid);
     }
 
     public List<Sale> getUnpaidSalesForCustomer(String customerId) throws SQLException {
@@ -1935,30 +2359,34 @@ public class DatabaseManager {
 
     public void insertCustomer(Customer customer) throws SQLException {
         String sql = """
-            INSERT INTO customers (id, name, phone, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO customers (id, name, phone, created_at, credit_limit, is_synced)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
-        
+
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, customer.getId());
             pstmt.setString(2, customer.getName());
             pstmt.setString(3, customer.getPhone());
             pstmt.setString(4, customer.getCreatedAt().format(DATE_TIME_FORMATTER));
-            
+            pstmt.setDouble(5, customer.getCreditLimit());
+            pstmt.setInt(6, customer.isSynced() ? 1 : 0);
+
             pstmt.executeUpdate();
             conn.commit();
         }
     }
 
     private Customer mapResultSetToCustomer(ResultSet rs) throws SQLException {
-        return new Customer(
+        Customer c = new Customer(
             rs.getString("id"),
             rs.getString("name"),
             rs.getString("phone"),
             LocalDateTime.parse(rs.getString("created_at"), DATE_TIME_FORMATTER),
-            false // isSynced - not used in customer entity currently
+            rs.getInt("is_synced") == 1
         );
+        try { c.setCreditLimit(rs.getDouble("credit_limit")); } catch (SQLException ignored) {}
+        return c;
     }
 
     public void ensureSupplierExists(String supplierName) {
@@ -2016,7 +2444,317 @@ public class DatabaseManager {
         return names;
     }
 
+    public boolean attemptAutoConversion(String barcode) {
+        try {
+            Product child = this.getProduct(barcode);
+            if (child == null) return false;
+
+            // Portions JIT conversion logic (Half / Quarter)
+            if (child.getParentBarcode() != null && !child.getParentBarcode().isEmpty() && child.getDeductionRatio() < 1.0) {
+                Product parent = this.getProduct(child.getParentBarcode());
+                if (parent == null) return false;
+
+                // RECURSION: If the parent (e.g. Single Sugar) has less than 1.0 unit in stock, try to auto-convert the parent first!
+                if (parent.getStock() < 1.0) {
+                    boolean parentConverted = attemptAutoConversion(parent.getBarcode());
+                    if (!parentConverted) {
+                        return false; // The parent supply chain is dry
+                    }
+                    // Reload parent to get its newly converted stock
+                    parent = this.getProduct(parent.getBarcode());
+                }
+
+                // Proceed with converting 1 unit of Parent into child Portions
+                if (parent.getStock() >= 1.0) {
+                    // Deduct exactly 1 unit from the parent
+                    this.updateStock(parent.getBarcode(), parent.getStock() - 1.0);
+
+                    // Yield is calculated based on deduction ratio
+                    int yield = (int) Math.round(1.0 / child.getDeductionRatio());
+                    if (yield <= 0) yield = 1;
+
+                    // Apply the updates to the child (Portion item)
+                    this.updateStock(child.getBarcode(), child.getStock() + yield);
+
+                    // Log activity
+                    this.logActivity("AUTO-RESTOCK (PORTION JIT)", "Opened 1 " + parent.getName() + ". Generated " + yield + " " + child.getName());
+                    return true;
+                }
+                return false;
+            }
+
+            // Normal JIT packaging tier conversion logic (Carton -> Box -> Packet -> Single)
+            String parentBarcode = child.getParentWholesaleBarcode();
+            if (parentBarcode == null || parentBarcode.isEmpty()) {
+                parentBarcode = child.getParentBarcode();
+            }
+            if (parentBarcode == null || parentBarcode.isEmpty()) {
+                return false; // Not a linked JIT packaging item
+            }
+
+            Product parent = this.getProduct(parentBarcode);
+            if (parent == null) return false;
+
+            // RECURSION: If the parent has less than 1.0 unit in stock, try to auto-convert the parent first!
+            if (parent.getStock() < 1.0) {
+                boolean parentConverted = attemptAutoConversion(parent.getBarcode());
+                if (!parentConverted) {
+                    return false; // The entire supply chain is empty
+                }
+                // Reload the parent to get its newly converted stock
+                parent = this.getProduct(parent.getBarcode());
+            }
+
+            // Proceed with converting the Parent into the Child
+            if (parent.getStock() >= 1.0) {
+                // 1. Deduct exactly 1 unit from the parent (e.g., open 1 Packet)
+                this.updateStock(parent.getBarcode(), parent.getStock() - 1.0);
+
+                // 2. Retrieve variables (Fallback to child's conversion yield, then to 1 to prevent division by zero)
+                int bundleSize = child.getBundleSize() > 0 ? child.getBundleSize() : 1;
+                int rawYield = parent.getRawPieceYield(); 
+                if (rawYield <= 0) {
+                    rawYield = child.getConversionYield();
+                }
+                if (rawYield <= 0) {
+                    rawYield = 1;
+                }
+                int currentRemainder = child.getLooseRemainderStock();
+
+                // 3. The Dynamic JIT Math (Combine new pieces with the existing jar leftovers)
+                int totalAvailablePieces = rawYield + currentRemainder;
+
+                int newBundles = totalAvailablePieces / bundleSize;     // e.g., 72 / 4 = 18
+                int newRemainder = totalAvailablePieces % bundleSize;   // e.g., 72 % 4 = 0
+
+                // 4. Apply the updates to the child (Retail Item)
+                this.updateStock(child.getBarcode(), child.getStock() + newBundles);
+                this.updateRemainder(child.getBarcode(), newRemainder);
+
+                // 5. Log the intelligent restock
+                this.logActivity("AUTO-RESTOCK (JIT)", "Opened 1 " + parent.getName() + ". Generated " + newBundles + " bundles. Remainder rolled over: " + newRemainder);
+                return true;
+            }
+        } catch (SQLException e) {
+            logger.error("Error attempting auto conversion for barcode: " + barcode, e);
+        }
+        return false;
+    }
+
+    public Product findImmediateChildProduct(String parentBarcode) {
+        if (parentBarcode == null || parentBarcode.trim().isEmpty()) {
+            return null;
+        }
+        String sql = "SELECT * FROM products WHERE parent_wholesale_barcode = ? AND is_active = 1 AND (deduction_ratio IS NULL OR deduction_ratio >= 1.0) LIMIT 1";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, parentBarcode);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToProduct(rs);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error finding immediate child product for parent: " + parentBarcode, e);
+        }
+        return null;
+    }
+
+    public void logActivity(String type, String message) {
+        logDiscrepancy("", type, message);
+    }
+
+    public void logDiscrepancy(String barcode, String type, String message) {
+        String sql = "INSERT INTO system_logs (id, barcode, type, message, created_at) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, java.util.UUID.randomUUID().toString());
+            pstmt.setString(2, barcode);
+            pstmt.setString(3, type);
+            pstmt.setString(4, message);
+            pstmt.setString(5, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+            pstmt.executeUpdate();
+            conn.commit();
+        } catch (SQLException e) {
+            logger.error("Error logging discrepancy: " + message, e);
+        }
+    }
+
+    public Product getProduct(String barcode) throws SQLException {
+        return findProductByBarcode(barcode).orElse(null);
+    }
+
+    /**
+     * Traces down the hierarchy from a given barcode to find the base retail item (Tier 1).
+     * If a Tier 3 barcode is passed, it traces to Tier 2 and then Tier 1.
+     * If a Tier 2 barcode is passed, it traces to Tier 1.
+     */
+    public Product findBaseRetailItem(String barcode) {
+        if (barcode == null || barcode.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            Product current = getProduct(barcode);
+            if (current == null) {
+                return null;
+            }
+            while (true) {
+                // Find a product that has current.getBarcode() as its parent_wholesale_barcode
+                String sql = "SELECT * FROM products WHERE parent_wholesale_barcode = ? AND is_active = 1 AND (deduction_ratio IS NULL OR deduction_ratio >= 1.0) LIMIT 1";
+                try (Connection conn = connect();
+                     PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, current.getBarcode());
+                    try (ResultSet rs = pstmt.executeQuery()) {
+                        if (rs.next()) {
+                            current = mapResultSetToProduct(rs);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            return current;
+        } catch (SQLException e) {
+            logger.error("Error finding base retail item for barcode: " + barcode, e);
+            return null;
+        }
+    }
+
+    public void updateStock(String barcode, double newStock) throws SQLException {
+        Optional<Product> pOpt = findProductByBarcode(barcode);
+        if (pOpt.isPresent()) {
+            updateProductStock(pOpt.get().getId(), newStock);
+        }
+    }
+
+    public void updateRemainder(String barcode, int newRemainder) throws SQLException {
+        Optional<Product> pOpt = findProductByBarcode(barcode);
+        if (pOpt.isPresent()) {
+            String sql = "UPDATE products SET loose_remainder_stock = ?, updated_at = ? WHERE id = ?";
+            try (Connection conn = connect();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, newRemainder);
+                pstmt.setString(2, LocalDateTime.now().format(DATE_TIME_FORMATTER));
+                pstmt.setString(3, pOpt.get().getId());
+                pstmt.executeUpdate();
+                conn.commit();
+            }
+        }
+    }
+
     public void close() {
         logger.info("Database manager closed");
+    }
+
+    public String determineTierLabel(Product p) {
+        if (p == null) return "Unknown";
+        String name = p.getName();
+        if (name != null) {
+            if (name.contains("(Master Carton)")) return "Carton";
+            if (name.contains("(Master Box)")) return "Box";
+            if (name.contains("(Packet)")) return "Packet";
+            if (name.contains("(Single)")) return "Piece";
+        }
+        if (p.getParentBarcode() == null || p.getParentBarcode().isEmpty()) {
+            return "Master Top-Level Unit";
+        }
+        return "Piece (Retail)";
+    }
+
+    public void incrementStock(String barcode, double quantityReceived) throws SQLException {
+        Optional<Product> pOpt = findProductByBarcode(barcode);
+        if (pOpt.isPresent()) {
+            updateProductStock(pOpt.get().getId(), pOpt.get().getStockQuantity() + quantityReceived);
+        }
+    }
+
+    public Double getLastRestockCost(String barcode) {
+        if (barcode == null || barcode.isBlank()) {
+            return null;
+        }
+        String sql = """
+            SELECT sti.buying_price 
+            FROM supplier_transaction_items sti
+            JOIN products p ON sti.product_id = p.id
+            JOIN supplier_transactions st ON sti.transaction_id = st.id
+            WHERE p.barcode = ?
+            ORDER BY datetime(st.created_at) DESC
+            LIMIT 1
+            """;
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, barcode);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("buying_price");
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting last restock cost for barcode: " + barcode, e);
+        }
+        return null;
+    }
+
+    public void performAutomatedBackup() {
+        try {
+            String installDir = System.getProperty("user.dir");
+            File backupFolder = new File(installDir, "backups");
+            if (!backupFolder.exists()) {
+                boolean created = backupFolder.mkdir();
+                if (created) {
+                    System.out.println("Created backups directory: " + backupFolder.getAbsolutePath());
+                }
+            }
+            
+            if (this.dbPath == null) {
+                System.err.println("Database path is null, cannot perform backup.");
+                return;
+            }
+            
+            File dbFile = new File(this.dbPath);
+            if (!dbFile.exists()) {
+                System.err.println("Database file does not exist at " + this.dbPath + ", cannot perform backup.");
+                return;
+            }
+            
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
+            String backupFileName = "vegas_pos_backup_" + timestamp + ".db";
+            File backupFile = new File(backupFolder, backupFileName);
+            
+            java.nio.file.Files.copy(dbFile.toPath(), backupFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("Automated database backup completed successfully: " + backupFile.getAbsolutePath());
+            
+            // Clean up backups older than 10 days
+            cleanOldBackups(backupFolder, 10);
+        } catch (Exception e) {
+            System.err.println("Failed to perform automated database backup: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void cleanOldBackups(java.io.File backupDir, int retentionDays) {
+        try {
+            java.time.Instant cutoff = java.time.Instant.now().minus(retentionDays, java.time.temporal.ChronoUnit.DAYS);
+            
+            java.nio.file.Files.list(backupDir.toPath())
+                .filter(path -> path.toString().endsWith(".db") || path.toString().endsWith(".sqlite"))
+                .filter(path -> {
+                    try {
+                        return java.nio.file.Files.getLastModifiedTime(path).toInstant().isBefore(cutoff);
+                    } catch (java.io.IOException e) { 
+                        return false; 
+                    }
+                })
+                .forEach(path -> {
+                    try {
+                        java.nio.file.Files.delete(path);
+                        System.out.println("Cleaned up old backup: " + path.getFileName());
+                    } catch (java.io.IOException e) {
+                        System.err.println("Failed to delete old backup: " + path.getFileName());
+                    }
+                });
+        } catch (java.io.IOException e) {
+            System.err.println("Error reading backup directory for cleanup: " + e.getMessage());
+        }
     }
 }

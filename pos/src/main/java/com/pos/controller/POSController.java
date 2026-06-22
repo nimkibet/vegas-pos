@@ -30,6 +30,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -81,6 +82,7 @@ public class POSController {
     private boolean isScannerInput;
     private Timeline searchDebounceTimeline;
     private boolean isDatabaseSearchMode;
+    private boolean isLargeText = false;
     
     // Observable lists
     private ObservableList<Product> productList;
@@ -91,6 +93,10 @@ public class POSController {
     private Map<String, Sale> heldCarts;
     private int holdCartCounter;
     
+    // FXML components - Root
+    @FXML
+    private BorderPane rootPane;
+
     // FXML components - Products Table
     @FXML
     private TableView<Product> productTable;
@@ -172,6 +178,8 @@ public class POSController {
     private Button backofficeButton;
     @FXML
     private Button profileButton;
+    @FXML
+    private Button themeToggleButton;
     
     public POSController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -234,15 +242,21 @@ public class POSController {
             @Override
             protected void updateItem(Double stock, boolean empty) {
                 super.updateItem(stock, empty);
-                if (empty || stock == null) {
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
                     setText("");
                     setStyle("");
                 } else {
-                    setText(String.format("%.2f", stock));
-                    if (stock <= 5) {
-                        setStyle("-fx-background-color: #fed7d7; -fx-text-fill: #c53030; -fx-font-weight: bold;");
+                    Product product = getTableRow().getItem();
+                    if (product.getParentBarcode() != null && product.getDeductionRatio() < 1.0) {
+                        setText("Dynamic");
+                        setStyle("-fx-text-fill: #666666;");
                     } else {
-                        setStyle("");
+                        setText(String.format("%.2f", stock));
+                        if (stock <= 5) {
+                            setStyle("-fx-background-color: #fed7d7; -fx-text-fill: #c53030; -fx-font-weight: bold;");
+                        } else {
+                            setStyle("");
+                        }
                     }
                 }
             }
@@ -256,28 +270,26 @@ public class POSController {
             private final Button minusBtn = new Button("-");
             private final Button plusBtn = new Button("+");
             private final Label qtyLabel = new Label();
-            private final HBox hbox = new HBox(10, minusBtn, qtyLabel, plusBtn);
+            private final HBox hbox = new HBox(12, minusBtn, qtyLabel, plusBtn);
 
             {
                 hbox.setAlignment(Pos.CENTER);
-                minusBtn.setStyle("-fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 30;");
-                plusBtn.setStyle("-fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 30;");
+                minusBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 32; -fx-min-height: 32; -fx-max-width: 32; -fx-max-height: 32; -fx-background-radius: 16; -fx-font-size: 14; -fx-padding: 0;");
+                plusBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 32; -fx-min-height: 32; -fx-max-width: 32; -fx-max-height: 32; -fx-background-radius: 16; -fx-font-size: 14; -fx-padding: 0;");
+                qtyLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b; -fx-font-size: 14;");
                 
                 minusBtn.setOnAction(e -> {
-                    SaleItem item = getTableView().getItems().get(getIndex());
-                    if (item.getQuantity() > 1) {
-                        item.setQuantity(item.getQuantity() - 1);
-                        getTableView().refresh();
-                        refreshCartTotals();
+                    if (getIndex() >= 0 && getIndex() < getTableView().getItems().size()) {
+                        SaleItem item = getTableView().getItems().get(getIndex());
+                        decrementCartLineQuantity(item, getTableView());
                     }
                 });
                 
                 plusBtn.setOnAction(e -> {
-                    SaleItem item = getTableView().getItems().get(getIndex());
-                    // Check stock if needed, or just increment
-                    item.setQuantity(item.getQuantity() + 1);
-                    getTableView().refresh();
-                    refreshCartTotals();
+                    if (getIndex() >= 0 && getIndex() < getTableView().getItems().size()) {
+                        SaleItem item = getTableView().getItems().get(getIndex());
+                        incrementCartLineQuantity(item);
+                    }
                 });
             }
 
@@ -347,6 +359,7 @@ public class POSController {
         
         // Auto-focus barcode field for scanner
         requestBarcodeFocus();
+        javafx.application.Platform.runLater(this::applyTheme);
     }
 
     private void requestBarcodeFocus() {
@@ -522,6 +535,7 @@ public class POSController {
             dialog.initModality(Modality.APPLICATION_MODAL);
             dialog.initOwner(productTable.getScene().getWindow());
             dialog.setResizable(false);
+            dialog.sizeToScene();
             dialog.showAndWait();
             
             Product addedProduct = controller.getAddedProduct();
@@ -600,6 +614,36 @@ public class POSController {
             performDatabaseSearch(searchTerm);
         } else {
             performInMemorySearch(searchTerm);
+        }
+    }
+
+    /**
+     * Specialized inventory filter for managers and staff.
+     * Fetches fresh from DB, filters by name/barcode, and sorts by stock ascending (out-of-stock first).
+     */
+    public void filterInventory(String query, String category) {
+        try {
+            List<Product> allProducts = dbManager.getAllProducts();
+            String q = query != null ? query.toLowerCase().trim() : "";
+            
+            List<Product> filtered = allProducts.stream()
+                .filter(p -> {
+                    boolean matchesQuery = q.isEmpty() || 
+                        p.getName().toLowerCase().contains(q) || 
+                        p.getBarcode().toLowerCase().contains(q);
+                    
+                    boolean matchesCategory = category == null || category.equalsIgnoreCase("All") || 
+                        (p.getCategory() != null && p.getCategory().equalsIgnoreCase(category));
+                    
+                    return matchesQuery && matchesCategory;
+                })
+                .sorted((p1, p2) -> Double.compare(p1.getStockQuantity(), p2.getStockQuantity()))
+                .toList();
+            
+            productList.setAll(filtered);
+            logger.info("Inventory filtered: {} results", filtered.size());
+        } catch (Exception e) {
+            logger.error("Error filtering inventory", e);
         }
     }
     
@@ -821,25 +865,7 @@ public class POSController {
             boxes = 1.0;
         }
 
-        double stockToCheck = selected.getStockQuantity();
-        double unitsNeeded = boxes * per;
-
-        if (selected.getParentBarcode() != null && !selected.getParentBarcode().isEmpty()) {
-            try {
-                Optional<Product> parentOpt = dbManager.findProductByBarcode(selected.getParentBarcode());
-                if (parentOpt.isPresent()) {
-                    stockToCheck = parentOpt.get().getStockQuantity();
-                    unitsNeeded = (boxes * per) * selected.getDeductionRatio();
-                }
-            } catch (SQLException e) {
-                logger.error("Error fetching parent product stock", e);
-            }
-        }
-
-        if (stockToCheck < unitsNeeded) {
-            showError("Insufficient stock for " + boxes + " box(es) (need " + unitsNeeded + " units).");
-            return;
-        }
+        // Waterfall logic: Allow the box sale even if stock is insufficient.
         
         addBoxLineToCart(selected);
         if (boxes != 1.0) {
@@ -855,62 +881,34 @@ public class POSController {
         }
         requestBarcodeFocus();
     }
-    
+
     /**
      * Add product to cart (unit / single lines only). Box scans use {@link #addBoxLineToCart(Product)}.
      */
     private void addToCart(Product product, double quantity) {
-        double stockToCheck = product.getStockQuantity();
-        Product stockOwner = product;
-        double quantityToDeduct = quantity;
-
-        if (product.getParentBarcode() != null && !product.getParentBarcode().isEmpty()) {
-            try {
-                Optional<Product> parentOpt = dbManager.findProductByBarcode(product.getParentBarcode());
-                if (parentOpt.isPresent()) {
-                    stockOwner = parentOpt.get();
-                    stockToCheck = stockOwner.getStockQuantity();
-                    quantityToDeduct = quantity * product.getDeductionRatio();
-                }
-            } catch (SQLException e) {
-                logger.error("Error fetching parent product stock", e);
-            }
-        }
-
-        if (stockToCheck < quantityToDeduct) {
-            showError("Insufficient stock");
-            return;
-        }
-
+        final Product finalProduct = product;
         Optional<SaleItem> existingItem = cartList.stream()
-            .filter(item -> item.getProductId().equals(product.getId()) && !item.isBoxSale())
+            .filter(item -> item.getProductId().equals(finalProduct.getId()) && !item.isBoxSale())
             .findFirst();
 
         if (existingItem.isPresent()) {
             SaleItem item = existingItem.get();
             double newQty = item.getQuantity() + quantity;
-            double newQuantityToDeduct = newQty;
-            if (product.getParentBarcode() != null && !product.getParentBarcode().isEmpty()) {
-                newQuantityToDeduct = newQty * product.getDeductionRatio();
-            }
-
-            if (newQuantityToDeduct > stockToCheck) {
-                showError("Insufficient stock");
-                return;
-            }
-            BigDecimal unit = pricingContext.getPrice(product);
+            BigDecimal unit = pricingContext.getPrice(finalProduct);
             item.setUnitPrice(unit);
             item.setQuantity(newQty);
             cartTable.refresh();
         } else {
-            BigDecimal price = pricingContext.getPrice(product);
-            SaleItem newItem = new SaleItem(product, quantity, price);
+            BigDecimal price = pricingContext.getPrice(finalProduct);
+            SaleItem newItem = new SaleItem(finalProduct, quantity, price);
             newItem.setBoxSale(false);
             cartList.add(newItem);
         }
 
         refreshCartTotals();
     }
+    
+
     
     /**
      * Add one box sale: {@code piecesPerBulk} units at {@code bulkPrice} total for the line.
@@ -939,10 +937,8 @@ public class POSController {
                 return;
             }
         }
-        if (product.getStockQuantity() < per) {
-            showError("Insufficient stock");
-            return;
-        }
+
+
         
         Optional<SaleItem> existingItem = cartList.stream()
             .filter(item -> item.getProductId().equals(product.getId()) && item.isBoxSale())
@@ -951,11 +947,6 @@ public class POSController {
         if (existingItem.isPresent()) {
             SaleItem item = existingItem.get();
             double newQty = item.getQuantity() + 1.0;
-            // Stock check: newQty * piecesPerBulk
-            if ((newQty * per) > product.getStockQuantity()) {
-                showError("Insufficient stock");
-                return;
-            }
             item.setQuantity(newQty);
             item.setProductName(newQty + " Boxes - " + product.getName());
             cartTable.refresh();
@@ -1298,6 +1289,35 @@ public class POSController {
      * Update cart totals
      */
     private void refreshCartTotals() {
+        for (SaleItem item : cartList) {
+            if (item.isBoxSale()) {
+                item.recalculateTotal();
+            } else {
+                double lineTotal = 0.0;
+                double qty = item.getQuantity();
+
+                // Check if this item has a volume discount set up
+                if (item.getVolumeQty() > 0 && qty >= item.getVolumeQty()) {
+                    int qtyInt = (int) qty;
+                    int promoBundles = qtyInt / item.getVolumeQty();
+                    int remainder = qtyInt % item.getVolumeQty();
+
+                    // E.g., (2 bundles * KSh 10) + (1 remainder * KSh 5) = KSh 25
+                    lineTotal = (promoBundles * item.getVolumePrice()) + (remainder * item.getRetailPrice());
+                    
+                    // Add any fractional part (if any) at standard retail price
+                    double fraction = qty - qtyInt;
+                    if (fraction > 0) {
+                        lineTotal += fraction * item.getRetailPrice();
+                    }
+                } else {
+                    // Standard pricing
+                    lineTotal = qty * item.getRetailPrice();
+                }
+                item.setTotalPrice(BigDecimal.valueOf(lineTotal));
+            }
+        }
+
         BigDecimal subtotal = cartList.stream()
             .map(SaleItem::getTotalPrice)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -1338,10 +1358,18 @@ public class POSController {
         
         try {
             // First, show checkout dialog to get payment details
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/checkout.fxml"));
-            javafx.scene.Parent root = loader.load();
-            
-            CheckoutController controller = loader.getController();
+            javafx.scene.Parent root;
+            CheckoutController controller;
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/checkout.fxml"));
+                root = loader.load();
+                controller = loader.getController();
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.err.println("CRITICAL UI ERROR: Failed to load checkout.fxml. Cause: " + e.getCause());
+                showError("CRITICAL UI ERROR: Failed to load checkout.fxml. " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()));
+                return;
+            }
             controller.setSale(currentSale);
             
             Stage dialog = new Stage();
@@ -1353,45 +1381,170 @@ public class POSController {
             dialog.sizeToScene();
             dialog.showAndWait();
             
-            // Check if user confirmed the sale
-            if (!controller.isConfirmed()) {
-                return; // User cancelled
+            // Check if the sale actually went through, or if they just clicked 'Cancel'
+            if (controller.isTransactionSuccessful) {
+                // Complete the sale (checkout dialog already set payment status / customer for credit)
+                currentSale.getItems().addAll(cartList);
+                currentSale.recalculateTotal();
+                
+                // Calculate and save unit COGS for each item
+                for (SaleItem item : currentSale.getItems()) {
+                    double cogs = calculateSaleItemCogs(item);
+                    item.setUnitCogs(cogs);
+                }
+                if (controller.getPaymentMethod() != null) {
+                    currentSale.setPaymentMethod(controller.getPaymentMethod());
+                }
+                if (controller.getAmountPaid() != null) {
+                    currentSale.setAmountPaid(controller.getAmountPaid());
+                }
+                if (controller.getChange() != null) {
+                    currentSale.setChangeGiven(controller.getChange());
+                }
+                if (controller.isSplitPayment()) {
+                    currentSale.setCashAmount(controller.getCashAmount());
+                    currentSale.setMpesaAmount(controller.getMpesaAmount());
+                    currentSale.setSecondaryPaymentMethod(Sale.PaymentMethod.MOBILE_MONEY);
+                }
+                currentSale.complete();
+                
+                // Deduct Stock from DB (applying JIT auto-conversion and negative sell-through)
+                for (SaleItem item : cartList) {
+                    try {
+                        Product freshProduct = null;
+                        if (item.getProductBarcode() != null && !item.getProductBarcode().isBlank()) {
+                            freshProduct = dbManager.getProduct(item.getProductBarcode());
+                        }
+                        if (freshProduct == null) {
+                            Optional<Product> pOpt = dbManager.findProductById(item.getProductId());
+                            if (pOpt.isPresent()) {
+                                freshProduct = pOpt.get();
+                            }
+                        }
+                        if (freshProduct != null) {
+                            double qty = item.getQuantity();
+                            if (item.isBoxSale()) {
+                                qty = qty * freshProduct.getPiecesPerBulk();
+                            }
+                            
+                            Product targetProduct = freshProduct;
+                            double targetQty = qty;
+                            
+                            // Attempt JIT Auto-Conversion if parent/retail stock is insufficient
+                            while (targetProduct.getStock() < targetQty) {
+                                boolean converted = dbManager.attemptAutoConversion(targetProduct.getBarcode());
+                                if (!converted) {
+                                    break; // No more conversion possible (supply chain is dry)
+                                }
+                                Product reloaded = dbManager.getProduct(targetProduct.getBarcode());
+                                if (reloaded == null || reloaded.getStock() == targetProduct.getStock()) {
+                                    break; // Avoid infinite loop if stock didn't change
+                                }
+                                targetProduct = reloaded;
+                            }
+                            
+                            // Deduct stock from the target product
+                            double newStock = targetProduct.getStock() - targetQty;
+                            dbManager.updateStock(targetProduct.getBarcode(), newStock);
+                            
+                            // Log discrepancy if stock drops below 0
+                            if (newStock < 0) {
+                                dbManager.logDiscrepancy(targetProduct.getBarcode(), "NEGATIVE STOCK", 
+                                    "System allowed sale resulting in negative stock. Sold: " + targetQty + ", Remaining: " + newStock);
+                                
+                                // Forward to the approval list (set status to PENDING in local DB)
+                                dbManager.updateProductStatus(targetProduct.getId(), "PENDING");
+                                
+                                // Sync updated status immediately to cloud if online
+                                targetProduct.setStatus("PENDING");
+                                targetProduct.setStockQuantity(newStock); // Update the object as well
+                                syncService.syncProductToCloud(targetProduct);
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error deducting stock for item: " + item.getProductName(), e);
+                    }
+                }
+                
+                dbManager.insertSale(currentSale);
+                printerService.printTransaction(currentSale);
+                
+                if (!controller.isCreditSale()) {
+                    printerService.openCashDrawer();
+                }
+                
+                showSuccess("Sale completed! Total: " + formatCurrency(currentSale.getTotal()));
+                
+                // Clear the cashier's workspace.
+                cartList.clear();
+                if (cartTable != null) {
+                    cartTable.refresh();
+                }
+                
+                // Reset the total labels back to KSh 0.00
+                subtotalLabel.setText("KSh0.00");
+                totalLabel.setText("KSh0.00");
+                
+                startNewSale();
+                loadProducts();
+                requestBarcodeFocus();
             }
-            
-            // Complete the sale (checkout dialog already set payment status / customer for credit)
-            currentSale.getItems().addAll(cartList);
-            currentSale.recalculateTotal();
-            if (controller.getPaymentMethod() != null) {
-                currentSale.setPaymentMethod(controller.getPaymentMethod());
-            }
-            if (controller.getAmountPaid() != null) {
-                currentSale.setAmountPaid(controller.getAmountPaid());
-            }
-            if (controller.getChange() != null) {
-                currentSale.setChangeGiven(controller.getChange());
-            }
-            if (controller.isSplitPayment()) {
-                currentSale.setCashAmount(controller.getCashAmount());
-                currentSale.setMpesaAmount(controller.getMpesaAmount());
-                currentSale.setSecondaryPaymentMethod(Sale.PaymentMethod.MOBILE_MONEY);
-            }
-            currentSale.complete();
-            
-            dbManager.insertSale(currentSale);
-            printerService.printTransaction(currentSale);
-            
-            if (!controller.isCreditSale()) {
-                printerService.openCashDrawer();
-            }
-            
-            showSuccess("Sale completed! Total: " + formatCurrency(currentSale.getTotal()));
-            startNewSale();
-            requestBarcodeFocus();
             
         } catch (Exception e) {
             logger.error("Error during checkout", e);
             showError("Error during checkout: " + e.getMessage());
         }
+    }
+
+    private double calculateSaleItemCogs(SaleItem item) {
+        String barcode = item.getProductBarcode();
+        if (barcode == null || barcode.isBlank()) {
+            return 0.0;
+        }
+        
+        try {
+            // 1. Primary: Query the database to find the most recent 'Restock' transaction cost for this specific barcode.
+            Double cost = dbManager.getLastRestockCost(barcode);
+            if (cost != null && cost > 0.0) {
+                return cost;
+            }
+            
+            // Fetch product information
+            Product freshProduct = dbManager.getProduct(barcode);
+            if (freshProduct == null) {
+                return 0.0;
+            }
+            
+            // 2. Fallback (Hierarchy): recursively check parent barcodes for getLastRestockCost() and divide by yield
+            Product current = freshProduct;
+            double totalYield = 1.0;
+            while (true) {
+                String parentBarcode = current.getParentWholesaleBarcode();
+                if (parentBarcode == null || parentBarcode.isEmpty()) {
+                    parentBarcode = current.getParentBarcode();
+                }
+                if (parentBarcode == null || parentBarcode.isEmpty()) {
+                    break;
+                }
+                
+                double yieldVal = current.getConversionYield() > 0 ? current.getConversionYield() : 1.0;
+                totalYield *= yieldVal;
+                
+                Double parentCost = dbManager.getLastRestockCost(parentBarcode);
+                if (parentCost != null && parentCost > 0.0) {
+                    return parentCost / totalYield;
+                }
+                
+                Product parent = dbManager.getProduct(parentBarcode);
+                if (parent == null) {
+                    break;
+                }
+                current = parent;
+            }
+        } catch (Exception e) {
+            logger.error("Error calculating COGS for barcode: " + barcode, e);
+        }
+        return 0.0;
     }
     
     /**
@@ -1482,7 +1635,8 @@ public class POSController {
             // 4. Swap the scene on the existing stage (NO new Stage())
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas Supermarket POS");
-            stage.setResizable(true);
+            stage.setResizable(false);
+            stage.sizeToScene();
             stage.centerOnScreen();
             
             // 5. Clear auth state
@@ -1518,6 +1672,7 @@ public class POSController {
             adminDashboardController.setCurrentUser(authService.getCurrentUser().orElse(null));
             stage.setScene(new Scene(root));
             stage.setTitle("POS System - Admin Dashboard");
+            stage.setResizable(true);
             stage.setMaximized(true);
             logger.info("Navigated to Admin Dashboard");
         } catch (Exception e) {
@@ -1543,6 +1698,7 @@ public class POSController {
             dialog.initModality(Modality.APPLICATION_MODAL);
             dialog.initOwner(backofficeButton.getScene().getWindow());
             dialog.setResizable(false);
+            dialog.sizeToScene();
             dialog.showAndWait();
             
         } catch (Exception e) {
@@ -1601,19 +1757,10 @@ public class POSController {
         }
         if (item.isBoxSale()) {
             double newQty = item.getQuantity() + 1.0;
-            int per = Math.max(1, p.getPiecesPerBulk());
-            if ((newQty * per) > p.getStockQuantity()) {
-                showError("Insufficient stock");
-                return;
-            }
             item.setQuantity(newQty);
             item.setProductName(newQty + " Boxes - " + p.getName());
         } else {
             double newQty = item.getQuantity() + 1.0;
-            if (newQty > p.getStockQuantity()) {
-                showError("Insufficient stock");
-                return;
-            }
             BigDecimal unit = pricingContext.getPrice(p);
             item.setUnitPrice(unit);
             item.setQuantity(newQty);
@@ -1661,15 +1808,23 @@ public class POSController {
         return BrandingConstants.CURRENCY_SYMBOL + amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
     
-    /**
-     * Show error message
-     */
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    private void showToastWarning(String message) {
+        if (statusLabel != null) {
+            statusLabel.setText(message);
+        }
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Warning");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.show(); // Non-blocking Alert
     }
     
     /**
@@ -1701,6 +1856,7 @@ public class POSController {
                 dialog.initModality(Modality.APPLICATION_MODAL);
                 dialog.initOwner(productTable.getScene().getWindow());
                 dialog.setResizable(false);
+                dialog.sizeToScene();
                 dialog.showAndWait();
                 
                 if (authController.isAuthenticated()) {
@@ -1738,6 +1894,7 @@ public class POSController {
             stage.setScene(new Scene(root));
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.setResizable(false);
+            stage.sizeToScene();
             stage.showAndWait();
             
             // Refresh products in case some were updated (though ledger doesn't update products)
@@ -1775,6 +1932,44 @@ public class POSController {
         
         if (closed) {
             showSuccess("Register closed successfully");
+        }
+    }
+
+    @FXML
+    private void toggleTheme() {
+        com.pos.util.BrandingConstants.isDarkMode = !com.pos.util.BrandingConstants.isDarkMode;
+        applyTheme();
+    }
+
+    @FXML
+    private void toggleTextSize() {
+        isLargeText = !isLargeText;
+        Scene scene = rootPane.getScene(); 
+        if (scene != null) {
+            if (isLargeText) {
+                scene.getRoot().getStyleClass().add("large-text");
+            } else {
+                scene.getRoot().getStyleClass().remove("large-text");
+            }
+        }
+    }
+
+    private void applyTheme() {
+        if (themeToggleButton != null && themeToggleButton.getScene() != null) {
+            javafx.scene.Parent root = themeToggleButton.getScene().getRoot();
+            if (com.pos.util.BrandingConstants.isDarkMode) {
+                if (!root.getStyleClass().contains("dark-theme")) {
+                    root.getStyleClass().add("dark-theme");
+                }
+                if (!root.getStyleClass().contains("dark-mode")) {
+                    root.getStyleClass().add("dark-mode");
+                }
+                themeToggleButton.setText("☀️");
+            } else {
+                root.getStyleClass().remove("dark-theme");
+                root.getStyleClass().remove("dark-mode");
+                themeToggleButton.setText("🌙");
+            }
         }
     }
 }

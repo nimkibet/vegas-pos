@@ -1,13 +1,12 @@
 package com.pos.service;
 
 import com.pos.database.DatabaseManager;
-import com.pos.entity.Sale;
-import com.pos.entity.SaleItem;
-import com.pos.entity.ActivityLog;
+import com.pos.entity.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -44,15 +43,45 @@ public class SyncService {
     private SyncService() {
         this.databaseManager = DatabaseManager.getInstance();
         this.scheduler = Executors.newScheduledThreadPool(2);
-        // Supabase configuration from .env.local
+        // Supabase configuration default fallback values
         this.apiBaseUrl = "https://gtjwctckznenodikmgye.supabase.co";
         this.apiKey = "sb_publishable_nenFH56WRAtYgBaXPjrywQ_ExtvVz3a";
+        loadEnvLocal();
         this.syncIntervalMinutes = 5;
         this.connectionTimeoutMs = 10000;
         this.isRunning = false;
         this.isOnline = false;
         this.lastSyncTime = 0;
     }
+
+    private void loadEnvLocal() {
+        java.io.File envFile = new java.io.File(".env.local");
+        if (envFile.exists()) {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(envFile))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) continue;
+                    int equalsIdx = line.indexOf('=');
+                    if (equalsIdx > 0) {
+                        String key = line.substring(0, equalsIdx).trim();
+                        String value = line.substring(equalsIdx + 1).trim();
+                        if ("NEXT_PUBLIC_SUPABASE_URL".equals(key)) {
+                            this.apiBaseUrl = value;
+                        } else if ("NEXT_PUBLIC_SUPABASE_ANON_KEY".equals(key)) {
+                            this.apiKey = value;
+                        }
+                    }
+                }
+                logger.info("Loaded Supabase configuration from .env.local: {}", apiBaseUrl);
+            } catch (Exception e) {
+                logger.error("Error loading .env.local, using default hardcoded credentials", e);
+            }
+        } else {
+            logger.warn(".env.local not found in current directory, using default hardcoded credentials");
+        }
+    }
+
     
     /**
      * Get singleton instance
@@ -167,6 +196,42 @@ public class SyncService {
                     totalFailed++;
                 }
             }
+
+            // 4. Sync Debtors (Customers)
+            List<com.pos.entity.Customer> unsyncedCustomers = databaseManager.getUnsyncedCustomers();
+            for (com.pos.entity.Customer customer : unsyncedCustomers) {
+                // To get live balance, we need a summary
+                BigDecimal balance = databaseManager.getCustomerCurrentBalance(customer.getId());
+                com.pos.entity.CustomerDebtSummary summary = new com.pos.entity.CustomerDebtSummary(customer, balance, 0);
+                if (syncDebtorToCloud(summary)) {
+                    databaseManager.markCustomerAsSynced(customer.getId());
+                    totalSuccess++;
+                } else {
+                    totalFailed++;
+                }
+            }
+
+            // 5. Sync Supplier Transactions
+            List<com.pos.entity.SupplierTransaction> unsyncedTransactions = databaseManager.getUnsyncedSupplierTransactions();
+            for (com.pos.entity.SupplierTransaction trans : unsyncedTransactions) {
+                if (syncSupplierTransaction(trans)) {
+                    databaseManager.markSupplierTransactionAsSynced(trans.getId());
+                    totalSuccess++;
+                } else {
+                    totalFailed++;
+                }
+            }
+
+            // 6. Sync Products (Stock updates, price changes, etc.)
+            List<Product> unsyncedProducts = databaseManager.getUnsyncedProducts();
+            for (Product p : unsyncedProducts) {
+                if (syncProductToCloud(p)) {
+                    databaseManager.markProductAsSynced(p.getId());
+                    totalSuccess++;
+                } else {
+                    totalFailed++;
+                }
+            }
             
             if (totalSuccess > 0 || totalFailed > 0) {
                 lastSyncTime = System.currentTimeMillis();
@@ -176,6 +241,102 @@ public class SyncService {
         } catch (Exception e) {
             logger.error("Error during sync operation", e);
         }
+    }
+    
+    public boolean syncDebtorToCloud(com.pos.entity.CustomerDebtSummary summary) {
+        if (!isOnline) return false;
+        HttpURLConnection connection = null;
+        try {
+            String jsonPayload = createDebtorJsonPayload(summary);
+            // UPSERT using on_conflict (Supabase specific header)
+            java.net.URL url = new java.net.URL(apiBaseUrl + "/rest/v1/debtors");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Prefer", "resolution=merge-duplicates");
+            connection.setConnectTimeout(connectionTimeoutMs);
+            connection.setDoOutput(true);
+            
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            }
+            
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                databaseManager.markCustomerAsSynced(summary.getCustomer().getId());
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.error("Error syncing debtor: {}", summary.getCustomer().getId(), e);
+            return false;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    public boolean syncSupplierTransaction(com.pos.entity.SupplierTransaction trans) {
+        if (!isOnline) return false;
+        HttpURLConnection connection = null;
+        try {
+            String jsonPayload = createSupplierTransactionJsonPayload(trans);
+            java.net.URL url = new java.net.URL(apiBaseUrl + "/rest/v1/supplier_transactions");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Prefer", "resolution=merge-duplicates");
+            connection.setConnectTimeout(connectionTimeoutMs);
+            connection.setDoOutput(true);
+            
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            }
+            
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                databaseManager.markSupplierTransactionAsSynced(trans.getId());
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.error("Error syncing supplier transaction: {}", trans.getId(), e);
+            return false;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private String createDebtorJsonPayload(com.pos.entity.CustomerDebtSummary summary) {
+        com.pos.entity.Customer c = summary.getCustomer();
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"id\":\"").append(c.getId()).append("\",");
+        json.append("\"name\":\"").append(escapeJson(c.getName())).append("\",");
+        json.append("\"current_balance\":").append(summary.getTotalDebt().toPlainString()).append(",");
+        json.append("\"credit_limit\":").append(c.getCreditLimit()).append(",");
+        json.append("\"contact_info\":").append(c.getPhone() != null ? "\"" + escapeJson(c.getPhone()) + "\"" : "null").append(",");
+        json.append("\"created_at\":\"").append(c.getCreatedAt()).append("\"");
+        json.append("}");
+        return json.toString();
+    }
+
+    private String createSupplierTransactionJsonPayload(com.pos.entity.SupplierTransaction trans) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"id\":\"").append(trans.getId()).append("\",");
+        json.append("\"supplier_name\":\"").append(escapeJson(trans.getSupplierName())).append("\",");
+        json.append("\"total_cost\":").append(trans.getTotalCost().toPlainString()).append(",");
+        json.append("\"debtor_offset\":").append(trans.getDebtorOffset().toPlainString()).append(",");
+        json.append("\"cash_paid\":").append(trans.getCashPaid().toPlainString()).append(",");
+        json.append("\"debtor_id\":").append(trans.getDebtorId() != null ? "\"" + trans.getDebtorId() + "\"" : "null").append(",");
+        json.append("\"transaction_date\":\"").append(trans.getCreatedAt()).append("\",");
+        json.append("\"notes\":\"Payment Source: ").append(escapeJson(trans.getPaymentSource())).append("\"");
+        json.append("}");
+        return json.toString();
     }
     
     private boolean syncSaleToCloud(Sale sale) {
@@ -267,6 +428,76 @@ public class SyncService {
             if (connection != null) connection.disconnect();
         }
     }
+
+    public boolean syncProductToCloud(Product product) {
+        if (!isOnline) return false;
+        HttpURLConnection connection = null;
+        try {
+            String jsonPayload = createProductJsonPayload(product);
+            // UPSERT using on_conflict (Supabase specific header)
+            java.net.URL url = new java.net.URL(apiBaseUrl + "/rest/v1/products");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("apikey", apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Prefer", "resolution=merge-duplicates");
+            connection.setConnectTimeout(connectionTimeoutMs);
+            connection.setDoOutput(true);
+            
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            }
+            
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                databaseManager.markProductAsSynced(product.getId());
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.error("Error syncing product: {}", product.getId(), e);
+            return false;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    public void pushAllPendingProducts() {
+        if (!isOnline) return;
+        try {
+            List<Product> unsyncedProducts = databaseManager.getUnsyncedProducts();
+            for (Product p : unsyncedProducts) {
+                syncProductToCloud(p);
+            }
+        } catch (Exception e) {
+            logger.error("Error pushing pending products", e);
+        }
+    }
+
+    private String createProductJsonPayload(Product p) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"id\":\"").append(p.getId()).append("\",");
+        json.append("\"barcode\":\"").append(p.getBarcode()).append("\",");
+        json.append("\"name\":\"").append(escapeJson(p.getName())).append("\",");
+        json.append("\"category\":\"").append(escapeJson(p.getCategory())).append("\",");
+        json.append("\"retail_price\":").append(p.getRetailPrice().toPlainString()).append(",");
+        json.append("\"wholesale_price\":").append(p.getWholesalePrice().toPlainString()).append(",");
+        json.append("\"stock_quantity\":").append(p.getStockQuantity()).append(",");
+        json.append("\"min_stock_level\":").append(p.getMinStockLevel()).append(",");
+        json.append("\"unit_type\":").append(p.getUnitType() != null ? "\"" + escapeJson(p.getUnitType()) + "\"" : "null").append(",");
+        json.append("\"is_active\":").append(p.isActive() ? "true" : "false").append(",");
+        json.append("\"parent_barcode\":").append(p.getParentBarcode() != null ? "\"" + p.getParentBarcode() + "\"" : "null").append(",");
+        json.append("\"parent_wholesale_barcode\":").append(p.getParentWholesaleBarcode() != null ? "\"" + p.getParentWholesaleBarcode() + "\"" : "null").append(",");
+        json.append("\"conversion_yield\":").append(p.getConversionYield()).append(",");
+        json.append("\"raw_piece_yield\":").append(p.getRawPieceYield()).append(",");
+        json.append("\"deduction_ratio\":").append(p.getDeductionRatio()).append(",");
+        json.append("\"created_at\":\"").append(p.getCreatedAt()).append("\",");
+        json.append("\"updated_at\":\"").append(p.getUpdatedAt()).append("\"");
+        json.append("}");
+        return json.toString();
+    }
     
     private String createSaleJsonPayload(Sale sale) {
         StringBuilder json = new StringBuilder();
@@ -349,7 +580,9 @@ public class SyncService {
     private int getUnsyncedCount() {
         try {
             return databaseManager.getUnsyncedSales().size() + 
-                   databaseManager.getUnsyncedActivityLogs().size();
+                   databaseManager.getUnsyncedActivityLogs().size() +
+                   databaseManager.getUnsyncedCustomers().size() +
+                   databaseManager.getUnsyncedSupplierTransactions().size();
         } catch (Exception e) {
             return 0;
         }
