@@ -6,61 +6,64 @@
 
 <VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
       fx:controller="com.pos.controller.UserManagementController"
-      spacing="15" style="-fx-padding: 20;">
+      spacing="20" style="-fx-padding: 0;" stylesheets="@../css/style.css">
     
-    <Label text="User Management" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+    <HBox alignment="CENTER_LEFT" spacing="20">
+        <VBox>
+            <Label text="Team Management" style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+            <Label text="Manage system users, roles and access permissions" style="-fx-text-fill: #64748b;" />
+        </VBox>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="+ Add New Team Member" onAction="#handleAddUser" styleClass="btn-primary" prefHeight="40" />
+        <Button text="↻ Refresh" onAction="#handleRefresh" styleClass="btn-ghost" prefHeight="40" />
+    </HBox>
+    
+    <VBox styleClass="card" spacing="15">
+        <HBox spacing="10">
+            <TextField fx:id="searchField" promptText="Search by name, username or role..." 
+                       onKeyReleased="#handleSearch" HBox.hgrow="ALWAYS" prefHeight="45" />
+            <Button text="Search" onAction="#handleSearch" styleClass="btn-info" prefHeight="45" prefWidth="100" />
+        </HBox>
+    </VBox>
+    
+    <VBox styleClass="card" VBox.vgrow="ALWAYS" style="-fx-padding: 0;">
+        <TableView fx:id="usersTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+            <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
+            <columns>
+                <TableColumn fx:id="colUsername" text="Username" prefWidth="120" />
+                <TableColumn fx:id="colFullName" text="Full Name" prefWidth="250" />
+                <TableColumn fx:id="colRole" text="Role" prefWidth="120" />
+                <TableColumn fx:id="colActive" text="Status" prefWidth="100" />
+                <TableColumn fx:id="colCreatedAt" text="Joined Date" prefWidth="150" />
+            </columns>
+        </TableView>
+    </VBox>
     
     <HBox spacing="15" alignment="CENTER_LEFT">
-        <TextField fx:id="searchField" promptText="Search users..." 
-                   onKeyReleased="#handleSearch"
-                   style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" />
-        <Button text="Search" onAction="#handleSearch" styleClass="btn-primary" />
+        <Button text="Edit User" onAction="#handleEditUser" styleClass="btn-primary" prefHeight="40" />
+        <Button text="Toggle Access" onAction="#handleToggleActive" styleClass="btn-ghost" prefHeight="40" />
+        <Button text="Reset Password" onAction="#handleResetPassword" styleClass="btn-ghost" prefHeight="40" />
         <Region HBox.hgrow="ALWAYS" />
-        <Button text="Add New User" onAction="#handleAddUser" styleClass="btn-success" />
-        <Button text="Refresh" onAction="#handleRefresh" styleClass="button" />
+        <Button text="Remove User" onAction="#handleDeleteUser" styleClass="btn-danger" prefHeight="40" />
     </HBox>
     
-    <TableView fx:id="usersTable" VBox.vgrow="ALWAYS" styleClass="table-view">
-        <columns>
-            <TableColumn fx:id="colUsername" text="Username" prefWidth="120" />
-            <TableColumn fx:id="colFullName" text="Full Name" prefWidth="200" />
-            <TableColumn fx:id="colRole" text="Role" prefWidth="100" />
-            <TableColumn fx:id="colActive" text="Active" prefWidth="80" />
-            <TableColumn fx:id="colCreatedAt" text="Created At" prefWidth="120" />
-        </columns>
-    </TableView>
-    
-    <HBox spacing="10">
-        <Button text="Edit User" onAction="#handleEditUser" styleClass="btn-warning" />
-        <Button text="Toggle Active Status" onAction="#handleToggleActive" styleClass="button" />
-        <Button text="Reset Password" onAction="#handleResetPassword" styleClass="button" />
-        <Region HBox.hgrow="ALWAYS" />
-        <Button text="Delete User" onAction="#handleDeleteUser" styleClass="btn-danger" />
+    <!-- User Analysis Cards -->
+    <HBox spacing="20">
+        <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER">
+            <Label text="TOTAL USERS" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+            <Label fx:id="totalUsersLabel" text="0" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+        </VBox>
+        <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER">
+            <Label text="ACTIVE ACCOUNTS" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+            <Label fx:id="activeUsersLabel" text="0" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #10b981;" />
+        </VBox>
+        <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER">
+            <Label text="ADMINISTRATORS" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+            <Label fx:id="adminCountLabel" text="0" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #3b82f6;" />
+        </VBox>
+        <VBox styleClass="card" HBox.hgrow="ALWAYS" alignment="CENTER">
+            <Label text="ATTENDANTS" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+            <Label fx:id="attendantCountLabel" text="0" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #f59e0b;" />
+        </VBox>
     </HBox>
-    
-    <!-- User Analysis Section -->
-    <VBox spacing="10" style="-fx-background-color: #f0fdf4; -fx-padding: 15; -fx-border-color: #bbf7d0; -fx-border-radius: 8; -fx-background-radius: 8;">
-        <Label text="User Analytics" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #166534;" />
-        <GridPane hgap="30" vgap="10">
-            <columnConstraints>
-                <ColumnConstraints minWidth="150" />
-                <ColumnConstraints minWidth="100" />
-                <ColumnConstraints minWidth="150" />
-                <ColumnConstraints minWidth="100" />
-            </columnConstraints>
-            <children>
-                <Label text="Total Users:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;" />
-                <Label fx:id="totalUsersLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                
-                <Label text="Active Users:" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;" />
-                <Label fx:id="activeUsersLabel" text="0" GridPane.columnIndex="3" GridPane.rowIndex="0" style="-fx-text-fill: #16a34a;" />
-                
-                <Label text="Administrators:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;" />
-                <Label fx:id="adminCountLabel" text="0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                
-                <Label text="Attendants:" GridPane.columnIndex="2" GridPane.rowIndex="1" style="-fx-font-weight: bold;" />
-                <Label fx:id="attendantCountLabel" text="0" GridPane.columnIndex="3" GridPane.rowIndex="1" />
-            </children>
-        </GridPane>
-    </VBox>
 </VBox>

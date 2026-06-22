@@ -265,18 +265,21 @@ public class POSController {
         // Setup cart table columns
         colItemName.setCellValueFactory(new PropertyValueFactory<>("productName"));
         
-        // Custom cell factory for quantity with +/- buttons
+        // Custom cell factory for quantity with +/- buttons and inline edit TextField
         colQuantity.setCellFactory(col -> new TableCell<SaleItem, String>() {
             private final Button minusBtn = new Button("-");
             private final Button plusBtn = new Button("+");
-            private final Label qtyLabel = new Label();
-            private final HBox hbox = new HBox(12, minusBtn, qtyLabel, plusBtn);
+            private final TextField qtyEditField = new TextField();
+            private final HBox hbox = new HBox(8, minusBtn, qtyEditField, plusBtn);
 
             {
                 hbox.setAlignment(Pos.CENTER);
-                minusBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 32; -fx-min-height: 32; -fx-max-width: 32; -fx-max-height: 32; -fx-background-radius: 16; -fx-font-size: 14; -fx-padding: 0;");
-                plusBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 32; -fx-min-height: 32; -fx-max-width: 32; -fx-max-height: 32; -fx-background-radius: 16; -fx-font-size: 14; -fx-padding: 0;");
-                qtyLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b; -fx-font-size: 14;");
+                minusBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 28; -fx-min-height: 28; -fx-max-width: 28; -fx-max-height: 28; -fx-background-radius: 14; -fx-font-size: 12; -fx-padding: 0;");
+                plusBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-min-width: 28; -fx-min-height: 28; -fx-max-width: 28; -fx-max-height: 28; -fx-background-radius: 14; -fx-font-size: 12; -fx-padding: 0;");
+                
+                qtyEditField.setPrefWidth(65);
+                qtyEditField.setAlignment(Pos.CENTER);
+                qtyEditField.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b; -fx-font-size: 13; -fx-padding: 2 5; -fx-background-color: #f1f5f9; -fx-border-color: #cbd5e1; -fx-border-radius: 4; -fx-background-radius: 4;");
                 
                 minusBtn.setOnAction(e -> {
                     if (getIndex() >= 0 && getIndex() < getTableView().getItems().size()) {
@@ -291,6 +294,30 @@ public class POSController {
                         incrementCartLineQuantity(item);
                     }
                 });
+
+                qtyEditField.setOnAction(e -> handleQtyEdit());
+                qtyEditField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (!newVal) {
+                        handleQtyEdit();
+                    }
+                });
+            }
+
+            private void handleQtyEdit() {
+                if (getIndex() >= 0 && getIndex() < getTableView().getItems().size()) {
+                    SaleItem item = getTableView().getItems().get(getIndex());
+                    try {
+                        double newQty = Double.parseDouble(qtyEditField.getText().trim());
+                        if (newQty < 0) {
+                            showError("Quantity cannot be negative");
+                            qtyEditField.setText(String.format(java.util.Locale.US, "%.2f", item.getQuantity()));
+                            return;
+                        }
+                        updateCartLineQuantity(item, newQty);
+                    } catch (NumberFormatException ex) {
+                        qtyEditField.setText(String.format(java.util.Locale.US, "%.2f", item.getQuantity()));
+                    }
+                }
             }
 
             @Override
@@ -300,9 +327,7 @@ public class POSController {
                     setGraphic(null);
                 } else {
                     SaleItem saleItem = (SaleItem) getTableRow().getItem();
-                    String unit = (saleItem.getProduct() != null && saleItem.getProduct().getUnitType() != null) 
-                                 ? saleItem.getProduct().getUnitType() : "";
-                    qtyLabel.setText(String.format("%.2f %s", saleItem.getQuantity(), unit).trim());
+                    qtyEditField.setText(String.format(java.util.Locale.US, "%.2f", saleItem.getQuantity()));
                     setGraphic(hbox);
                 }
             }
@@ -320,7 +345,7 @@ public class POSController {
         cartTable.setItems(cartList);
         
         // Set column resize policy programmatically to avoid FXML coercion issues
-        productTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        productTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         cartTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
         productTable.setRowFactory(tv -> {
@@ -329,8 +354,14 @@ public class POSController {
             return row;
         });
         
-        productTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) ->
-            updateProductTableBoxSaleActions(n));
+        productTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
+            updateProductTableBoxSaleActions(n);
+            if (n != null) {
+                barcodeField.setText(n.getBarcode());
+                quantityField.requestFocus();
+                quantityField.selectAll();
+            }
+        });
         ContextMenu productCm = productTable.getContextMenu();
         if (productCm != null) {
             productCm.setOnShowing(e -> updateProductTableBoxSaleActions(
@@ -341,6 +372,14 @@ public class POSController {
         // Add keyboard listeners
         searchField.setOnKeyPressed(this::handleSearchKeyPress);
         productTable.setOnKeyPressed(this::handleProductTableKeyPress);
+        quantityField.setOnKeyPressed(event -> {
+            if (event.getCode() == javafx.scene.input.KeyCode.ENTER) {
+                handleAddToCart();
+                barcodeField.clear();
+                quantityField.setText("1");
+                requestBarcodeFocus();
+            }
+        });
         
         // Setup live search with ChangeListener
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
@@ -1796,6 +1835,35 @@ public class POSController {
             } else {
                 table.getItems().remove(item);
             }
+        }
+        cartTable.refresh();
+        refreshCartTotals();
+    }
+
+    /**
+     * Update cart line quantity directly from manual text input.
+     * Removes row when new quantity is 0 or less.
+     */
+    private void updateCartLineQuantity(SaleItem item, double newQty) {
+        if (newQty <= 0) {
+            cartTable.getItems().remove(item);
+            refreshCartTotals();
+            return;
+        }
+        Product p = item.getProduct();
+        if (p == null) {
+            cartTable.getItems().remove(item);
+            refreshCartTotals();
+            return;
+        }
+        
+        if (item.isBoxSale()) {
+            item.setQuantity(newQty);
+            item.setProductName((newQty <= 1.0 ? "1.0 Box" : newQty + " Boxes") + " - " + p.getName());
+        } else {
+            BigDecimal unit = pricingContext.getPrice(p);
+            item.setUnitPrice(unit);
+            item.setQuantity(newQty);
         }
         cartTable.refresh();
         refreshCartTotals();

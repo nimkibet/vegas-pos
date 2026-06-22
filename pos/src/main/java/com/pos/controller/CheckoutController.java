@@ -6,6 +6,7 @@ import com.pos.entity.Sale;
 import com.pos.util.BrandingConstants;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
@@ -26,19 +27,23 @@ public class CheckoutController {
 
     private static final Logger logger = LoggerFactory.getLogger(CheckoutController.class);
 
+    public boolean isTransactionSuccessful = false;
+
     private Sale sale;
     private ObservableList<Customer> customerList = FXCollections.observableArrayList();
 
     @FXML
     private Label totalDueLabel;
     @FXML
-    private RadioButton cashRadio;
+    private ToggleButton cashRadio;
     @FXML
-    private RadioButton mpesaRadio;
+    private ToggleButton mpesaRadio;
     @FXML
-    private RadioButton splitRadio;
+    private ToggleButton splitRadio;
     @FXML
-    private RadioButton creditRadio;
+    private ToggleButton creditRadio;
+    @FXML
+    private ToggleGroup paymentGroup;
     @FXML
     private VBox customerSection;
     @FXML
@@ -46,11 +51,13 @@ public class CheckoutController {
     @FXML
     private TextField amountTenderedField;
     @FXML
-    private TextField cashAmountField;
+    private VBox singlePaymentContainer;
     @FXML
-    private TextField mpesaAmountField;
+    private VBox splitPaymentContainer;
     @FXML
-    private VBox splitPaymentFields;
+    private TextField splitCashInput;
+    @FXML
+    private TextField splitMpesaInput;
     @FXML
     private Label changeLabel;
     @FXML
@@ -78,10 +85,14 @@ public class CheckoutController {
         setupCustomerDropdown();
         if (customerSection != null) {
             customerSection.setVisible(false);
+            customerSection.setManaged(false);
         }
         if (customerDropdown != null) {
             customerDropdown.getSelectionModel().selectedItemProperty().addListener(
                     (obs, oldVal, newVal) -> handleCalculateChange());
+        }
+        if (paymentGroup != null) {
+            paymentGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> handlePaymentMethodChanged());
         }
     }
 
@@ -125,17 +136,23 @@ public class CheckoutController {
         boolean splitSelected = splitRadio != null && splitRadio.isSelected();
         boolean creditSelected = creditRadio != null && creditRadio.isSelected();
 
-        if (splitPaymentFields != null) {
-            splitPaymentFields.setVisible(splitSelected);
+        if (singlePaymentContainer != null) {
+            singlePaymentContainer.setVisible(!splitSelected);
+            singlePaymentContainer.setManaged(!splitSelected);
+        }
+        if (splitPaymentContainer != null) {
+            splitPaymentContainer.setVisible(splitSelected);
+            splitPaymentContainer.setManaged(splitSelected);
         }
         if (customerSection != null) {
             customerSection.setVisible(creditSelected);
+            customerSection.setManaged(creditSelected);
         }
 
         if (splitSelected) {
             amountTenderedField.setDisable(true);
-            if (cashAmountField != null) {
-                cashAmountField.requestFocus();
+            if (splitCashInput != null) {
+                splitCashInput.requestFocus();
             }
         } else {
             amountTenderedField.setDisable(false);
@@ -143,6 +160,13 @@ public class CheckoutController {
                 amountTenderedField.requestFocus();
             } else if (customerDropdown != null) {
                 customerDropdown.requestFocus();
+            }
+        }
+
+        if (singlePaymentContainer != null && singlePaymentContainer.getScene() != null) {
+            Stage stage = (Stage) singlePaymentContainer.getScene().getWindow();
+            if (stage != null) {
+                stage.sizeToScene();
             }
         }
 
@@ -164,8 +188,8 @@ public class CheckoutController {
         }
 
         if (splitRadio != null && splitRadio.isSelected()) {
-            BigDecimal cashAmt = parseAmount(cashAmountField);
-            BigDecimal mpesaAmt = parseAmount(mpesaAmountField);
+            BigDecimal cashAmt = parseAmount(splitCashInput);
+            BigDecimal mpesaAmt = parseAmount(splitMpesaInput);
             BigDecimal tendered = cashAmt.add(mpesaAmt);
             BigDecimal changeAmount = tendered.subtract(total);
 
@@ -214,106 +238,117 @@ public class CheckoutController {
     }
 
     @FXML
-    private void handleConfirmSale() {
-        BigDecimal total = sale.getTotal();
-
-        if (splitRadio != null && splitRadio.isSelected()) {
-            confirmSplitPayment(total);
-            return;
-        }
-
-        if (creditRadio != null && creditRadio.isSelected()) {
-            confirmCreditSale(total);
-            return;
-        }
-
-        confirmRegularSale(total);
-    }
-
-    private void confirmSplitPayment(BigDecimal total) {
-        BigDecimal cashAmt = parseAmount(cashAmountField);
-        BigDecimal mpesaAmt = parseAmount(mpesaAmountField);
-        BigDecimal tendered = cashAmt.add(mpesaAmt);
-
-        if (tendered.compareTo(total) < 0) {
-            showError("Total payment must be at least " + formatCurrency(total));
-            return;
-        }
-
-        this.amountPaid = tendered;
-        this.change = tendered.subtract(total);
-        this.cashAmount = cashAmt;
-        this.mpesaAmount = mpesaAmt;
-        this.paymentMethod = Sale.PaymentMethod.CASH;
-
-        sale.setPaymentMethod(paymentMethod);
-        sale.setAmountPaid(amountPaid);
-        sale.setChangeGiven(change);
-        sale.setCashAmount(cashAmt);
-        sale.setMpesaAmount(mpesaAmt);
-        sale.setSecondaryPaymentMethod(Sale.PaymentMethod.MOBILE_MONEY);
-        sale.setPaymentStatus("PAID");
-
-        this.confirmed = true;
-        closeDialog();
-    }
-
-    private void confirmCreditSale(BigDecimal total) {
-        Customer selectedCustomer = customerDropdown.getSelectionModel().getSelectedItem();
-        if (selectedCustomer == null) {
-            showError("Please select a customer for credit sale");
-            return;
-        }
-
-        BigDecimal amountPaidDecimal = parseAmount(amountTenderedField);
-        if (amountPaidDecimal.compareTo(total) > 0) {
-            showError("Down payment cannot exceed sale total");
-            return;
-        }
-
-        this.amountPaid = amountPaidDecimal;
-        this.change = BigDecimal.ZERO;
-        this.paymentMethod = Sale.PaymentMethod.CREDIT;
-
-        sale.setPaymentMethod(paymentMethod);
-        sale.setAmountPaid(amountPaidDecimal);
-        sale.setChangeGiven(change);
-        sale.setCustomerId(selectedCustomer.getId());
-        sale.setPaymentStatus("CREDIT");
-
-        this.confirmed = true;
-        closeDialog();
-    }
-
-    private void confirmRegularSale(BigDecimal total) {
-        String tenderedStr = amountTenderedField.getText().trim();
-        if (tenderedStr.isEmpty()) {
-            showError("Please enter amount tendered");
-            return;
-        }
-
+    private void handleConfirmSale(ActionEvent event) {
         try {
-            BigDecimal tendered = new BigDecimal(tenderedStr);
-            if (tendered.compareTo(total) < 0) {
-                showError("Amount tendered must be greater than or equal to total");
-                return;
+            BigDecimal total = sale.getTotal();
+
+            if (splitRadio != null && splitRadio.isSelected()) {
+                BigDecimal cashAmt = parseAmount(splitCashInput);
+                BigDecimal mpesaAmt = parseAmount(splitMpesaInput);
+                BigDecimal tendered = cashAmt.add(mpesaAmt);
+
+                if (tendered.compareTo(total) < 0) {
+                    showError("Total payment must be at least " + formatCurrency(total));
+                    return;
+                }
+
+                this.amountPaid = tendered;
+                this.change = tendered.subtract(total);
+                this.cashAmount = cashAmt;
+                this.mpesaAmount = mpesaAmt;
+                this.paymentMethod = Sale.PaymentMethod.CASH;
+
+                sale.setPaymentMethod(paymentMethod);
+                sale.setAmountPaid(amountPaid);
+                sale.setChangeGiven(change);
+                sale.setCashAmount(cashAmt);
+                sale.setMpesaAmount(mpesaAmt);
+                sale.setSecondaryPaymentMethod(Sale.PaymentMethod.MOBILE_MONEY);
+                sale.setPaymentStatus("PAID");
+
+            } else if (creditRadio != null && creditRadio.isSelected()) {
+                Customer selectedCustomer = customerDropdown.getSelectionModel().getSelectedItem();
+                if (selectedCustomer == null) {
+                    showError("Please select a customer for credit sale");
+                    return;
+                }
+
+                // --- Credit Limit Guard ---
+                if (selectedCustomer.getCreditLimit() > 0) {
+                    try {
+                        BigDecimal currentBalance = DatabaseManager.getInstance()
+                                .getCustomerCurrentBalance(selectedCustomer.getId());
+                        BigDecimal newBalance = currentBalance.add(total);
+                        BigDecimal limit = BigDecimal.valueOf(selectedCustomer.getCreditLimit());
+                        if (newBalance.compareTo(limit) > 0) {
+                            showError("Transaction Blocked: " + selectedCustomer.getName()
+                                    + " has exceeded their credit limit!\n\n"
+                                    + "Current balance: KSh " + String.format("%.2f", currentBalance)
+                                    + "\nThis sale: KSh " + String.format("%.2f", total)
+                                    + "\nCredit limit: KSh " + String.format("%.2f", limit));
+                            return;
+                        }
+                    } catch (SQLException e) {
+                        logger.error("Could not verify credit limit", e);
+                    }
+                }
+
+                BigDecimal amountPaidDecimal = parseAmount(amountTenderedField);
+                if (amountPaidDecimal.compareTo(total) > 0) {
+                    showError("Down payment cannot exceed sale total");
+                    return;
+                }
+
+                this.amountPaid = amountPaidDecimal;
+                this.change = BigDecimal.ZERO;
+                this.paymentMethod = Sale.PaymentMethod.CREDIT;
+
+                sale.setPaymentMethod(paymentMethod);
+                sale.setAmountPaid(amountPaidDecimal);
+                sale.setChangeGiven(change);
+                sale.setCustomerId(selectedCustomer.getId());
+                sale.setPaymentStatus("CREDIT");
+
+            } else {
+                String tenderedStr = amountTenderedField.getText().trim();
+                if (tenderedStr.isEmpty()) {
+                    showError("Please enter amount tendered");
+                    return;
+                }
+
+                BigDecimal tendered = new BigDecimal(tenderedStr);
+                if (tendered.compareTo(total) < 0) {
+                    showError("Amount tendered must be greater than or equal to total");
+                    return;
+                }
+
+                this.amountPaid = tendered;
+                this.change = tendered.subtract(total);
+                this.paymentMethod = cashRadio.isSelected()
+                        ? Sale.PaymentMethod.CASH
+                        : Sale.PaymentMethod.MOBILE_MONEY;
+
+                sale.setPaymentMethod(paymentMethod);
+                sale.setAmountPaid(amountPaid);
+                sale.setChangeGiven(change);
+                sale.setPaymentStatus("PAID");
             }
 
-            this.amountPaid = tendered;
-            this.change = tendered.subtract(total);
-            this.paymentMethod = cashRadio.isSelected()
-                    ? Sale.PaymentMethod.CASH
-                    : Sale.PaymentMethod.MOBILE_MONEY;
-
-            sale.setPaymentMethod(paymentMethod);
-            sale.setAmountPaid(amountPaid);
-            sale.setChangeGiven(change);
-            sale.setPaymentStatus("PAID");
-
+            // Mark as successful
+            isTransactionSuccessful = true;
             this.confirmed = true;
-            closeDialog();
+
+            // Close the modal window properly
+            Stage stage = (Stage) ((javafx.scene.Node) event.getSource()).getScene().getWindow();
+            stage.close();
+
         } catch (NumberFormatException e) {
-            showError("Invalid amount");
+            System.err.println("CHECKOUT ERROR: Invalid number format in payment fields.");
+            showError("Invalid amount format entered.");
+        } catch (Exception e) {
+            System.err.println("CRITICAL CHECKOUT ERROR: " + e.getMessage());
+            e.printStackTrace();
+            showError("Critical checkout error: " + e.getMessage());
         }
     }
 

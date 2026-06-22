@@ -38,6 +38,17 @@ public class Product {
     private double deductionRatio = 1.0;
     private String unitType = "Pieces";
 
+    // Auto-Conversion & Negative Sell-Through fields
+    private String parentWholesaleBarcode;
+    private int conversionYield;
+    private int looseRemainderStock;
+    private int bundleSize = 1;
+    private int rawPieceYield = 0;
+
+    // Volume Pricing fields
+    private int volumeQty = 0;
+    private double volumePrice = 0.0;
+
     /**
      * Default constructor - generates new UUID
      */
@@ -54,6 +65,13 @@ public class Product {
         this.deductionRatio = 1.0;
         this.unitType = "Pieces";
         this.status = "APPROVED";
+        this.parentWholesaleBarcode = null;
+        this.conversionYield = 0;
+        this.looseRemainderStock = 0;
+        this.bundleSize = 1;
+        this.rawPieceYield = 0;
+        this.volumeQty = 0;
+        this.volumePrice = 0.0;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -93,6 +111,13 @@ public class Product {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.deductionRatio = 1.0;
+        this.parentWholesaleBarcode = null;
+        this.conversionYield = 0;
+        this.looseRemainderStock = 0;
+        this.bundleSize = 1;
+        this.rawPieceYield = 0;
+        this.volumeQty = 0;
+        this.volumePrice = 0.0;
     }
 
     // Getters and Setters
@@ -306,6 +331,66 @@ public class Product {
     public void increaseStock(int quantity) {
         this.stockQuantity += quantity;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public String getParentWholesaleBarcode() {
+        return parentWholesaleBarcode;
+    }
+
+    public void setParentWholesaleBarcode(String parentWholesaleBarcode) {
+        this.parentWholesaleBarcode = parentWholesaleBarcode;
+    }
+
+    public int getConversionYield() {
+        return conversionYield;
+    }
+
+    public void setConversionYield(int conversionYield) {
+        this.conversionYield = conversionYield;
+    }
+
+    public int getLooseRemainderStock() {
+        return looseRemainderStock;
+    }
+
+    public void setLooseRemainderStock(int looseRemainderStock) {
+        this.looseRemainderStock = looseRemainderStock;
+    }
+
+    public int getBundleSize() {
+        return bundleSize;
+    }
+
+    public void setBundleSize(int bundleSize) {
+        this.bundleSize = bundleSize;
+    }
+
+    public int getRawPieceYield() {
+        return rawPieceYield;
+    }
+
+    public void setRawPieceYield(int rawPieceYield) {
+        this.rawPieceYield = rawPieceYield;
+    }
+
+    public int getVolumeQty() {
+        return volumeQty;
+    }
+
+    public void setVolumeQty(int volumeQty) {
+        this.volumeQty = volumeQty;
+    }
+
+    public double getVolumePrice() {
+        return volumePrice;
+    }
+
+    public void setVolumePrice(double volumePrice) {
+        this.volumePrice = volumePrice;
+    }
+
+    public double getStock() {
+        return getStockQuantity();
     }
 
     @Override

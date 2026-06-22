@@ -32,13 +32,29 @@ public class Main extends Application {
             
             // Setup JavaFX stage
             primaryStage = stage;
+            
+            // Set custom application icon
+            try {
+                stage.getIcons().add(new javafx.scene.image.Image(getClass().getResourceAsStream("/logo.png")));
+            } catch (Exception e) {
+                logger.warn("Failed to load application icon: {}", e.getMessage());
+            }
+            
             showLoginScreen();
 
             stage.setTitle("Vegas Supermarket POS");
-            stage.setResizable(true);
+            stage.setResizable(false);
+            stage.sizeToScene();
             stage.centerOnScreen();
 
             stage.getProperties().put("windowsStyle", "decorated");
+            
+            stage.setOnCloseRequest(event -> {
+                System.out.println("Application closing... Initiating automated backup.");
+                DatabaseManager.getInstance().performAutomatedBackup();
+                System.out.println("Backup complete. Shutting down.");
+            });
+
             stage.show();
             
             logger.info("POS System started successfully");
@@ -89,6 +105,8 @@ public class Main extends Application {
             Scene scene = new Scene(root);
             primaryStage.setScene(scene);
             primaryStage.setTitle("POS System - Login");
+            primaryStage.setResizable(false);
+            primaryStage.sizeToScene();
             
         } catch (Exception e) {
             logger.error("Failed to load login screen", e);

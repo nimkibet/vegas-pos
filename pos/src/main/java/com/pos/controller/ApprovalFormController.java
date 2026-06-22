@@ -85,6 +85,9 @@ public class ApprovalFormController {
             
             dbManager.updateProduct(product);
             
+            // Sync to cloud
+            com.pos.service.SyncService.getInstance().syncProductToCloud(product);
+            
             Optional<User> currentUser = authService.getCurrentUser();
             if (currentUser.isPresent()) {
                 ActivityLog log = new ActivityLog(
@@ -112,7 +115,11 @@ public class ApprovalFormController {
     @FXML
     private void handleReject() {
         try {
+            product.setStatus("REJECTED");
             dbManager.updateProductStatus(product.getId(), "REJECTED");
+            
+            // Sync to cloud
+            com.pos.service.SyncService.getInstance().syncProductToCloud(product);
             
             Optional<User> currentUser = authService.getCurrentUser();
             if (currentUser.isPresent()) {

@@ -9,44 +9,63 @@
          fx:controller="com.pos.controller.InventoryController"
          stylesheets="@../css/style.css"
          tabClosingPolicy="UNAVAILABLE"
-         VBox.vgrow="ALWAYS">
+         VBox.vgrow="ALWAYS"
+         style="-fx-background-color: transparent;">
 
-    <Tab text="Product List">
-        <VBox spacing="15" style="-fx-padding: 20;">
+    <Tab text="Master Product List">
+        <VBox spacing="20" style="-fx-padding: 20;">
+            <!-- Header & Search -->
+            <VBox styleClass="card" spacing="15">
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <Label text="Product Inventory" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button text="+ Create New Product" onAction="#handleAddNewProduct" styleClass="btn-primary" />
+                    <Button text="↻ Refresh" onAction="#loadAllProducts" styleClass="btn-ghost" />
+                </HBox>
+                
+                <HBox spacing="10">
+                    <TextField fx:id="productSearchField" promptText="Filter by barcode, name, category or supplier..." 
+                               HBox.hgrow="ALWAYS" prefHeight="45" />
+                    <Button text="Filter" onAction="#handleProductSearch" styleClass="btn-info" prefHeight="45" prefWidth="100" />
+                </HBox>
+            </VBox>
+
+            <!-- Table Area -->
+            <VBox styleClass="card" VBox.vgrow="ALWAYS" style="-fx-padding: 0;">
+                <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                    <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
+                    <columns>
+                        <TableColumn text="Barcode" fx:id="colProductBarcode" prefWidth="120"/>
+                        <TableColumn text="Product Name" fx:id="colProductName" prefWidth="250"/>
+                        <TableColumn text="Category" fx:id="colProductCategory" prefWidth="120"/>
+                        <TableColumn text="Retail Price" fx:id="colProductRetail" prefWidth="100"/>
+                        <TableColumn text="Wholesale" fx:id="colProductWholesale" prefWidth="100"/>
+                        <TableColumn text="Stock" fx:id="colProductStock" prefWidth="80"/>
+                        <TableColumn text="Unit" fx:id="colProductUnit" prefWidth="70"/>
+                        <TableColumn text="Supplier" fx:id="colProductSupplier" prefWidth="120"/>
+                        <TableColumn text="Status" fx:id="colProductStatus" prefWidth="100"/>
+                    </columns>
+                </TableView>
+            </VBox>
+
+            <!-- Actions Footer -->
             <HBox spacing="15" alignment="CENTER_LEFT">
-                <TextField fx:id="productSearchField" promptText="Search products..."
-                           style="-fx-font-size: 13; -fx-padding: 10; -fx-pref-width: 300;" HBox.hgrow="SOMETIMES"/>
-                <Button text="Search" onAction="#handleProductSearch" styleClass="btn-primary"/>
-                <Region HBox.hgrow="ALWAYS"/>
-                <Button text="Add New Product" onAction="#handleAddNewProduct" styleClass="btn-success"/>
-                <Button text="Refresh" onAction="#loadAllProducts" styleClass="button"/>
-            </HBox>
-
-            <TableView fx:id="productsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
-                <columns>
-                    <TableColumn text="Barcode" fx:id="colProductBarcode" prefWidth="120"/>
-                    <TableColumn text="Product Name" fx:id="colProductName" prefWidth="180"/>
-                    <TableColumn text="Category" fx:id="colProductCategory" prefWidth="100"/>
-                    <TableColumn text="Retail Price" fx:id="colProductRetail" prefWidth="100"/>
-                    <TableColumn text="Wholesale Price" fx:id="colProductWholesale" prefWidth="110"/>
-                    <TableColumn text="Stock" fx:id="colProductStock" prefWidth="70"/>
-                    <TableColumn text="Unit" fx:id="colProductUnit" prefWidth="70"/>
-                    <TableColumn text="Supplier" fx:id="colProductSupplier" prefWidth="100"/>
-                    <TableColumn text="Status" fx:id="colProductStatus" prefWidth="80"/>
-                </columns>
-            </TableView>
-
-            <HBox spacing="10">
-                <Button text="Edit Selected" onAction="#handleEditProduct" styleClass="btn-primary"/>
-                <Button text="Delete Selected" onAction="#handleDeleteProduct" styleClass="btn-danger"/>
-                <Button text="Adjust Stock" onAction="#handleAdjustStock" styleClass="btn-warning"/>
+                <Button text="Edit Product" onAction="#handleEditProduct" styleClass="btn-primary" prefHeight="40" />
+                <Button text="Adjust Stock" onAction="#handleAdjustStock" styleClass="btn-warning" prefHeight="40" />
+                <Button fx:id="openBulkBtn" text="Open Bulk Packet" onAction="#handleOpenBulkPacket" styleClass="btn-info" prefHeight="40" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Button text="Delete Permanently" onAction="#handleDeleteProduct" styleClass="btn-danger" prefHeight="40" />
             </HBox>
         </VBox>
     </Tab>
 
-    <Tab text="Manage Product">
-        <ScrollPane fitToWidth="true" style="-fx-background: transparent; -fx-background-color: transparent;">
-            <fx:include source="product_form.fxml" fx:id="productForm"/>
+    <Tab text="Add / Edit Details">
+        <ScrollPane fitToWidth="true" fitToHeight="true" style="-fx-background-color: transparent; -fx-control-inner-background: transparent; -fx-background: transparent; -fx-border-color: transparent; -fx-padding: 20;">
+            <VBox alignment="TOP_CENTER">
+                <VBox prefWidth="950" styleClass="card">
+                    <fx:include source="product_form.fxml" fx:id="productForm"/>
+                </VBox>
+            </VBox>
         </ScrollPane>
     </Tab>
 </TabPane>

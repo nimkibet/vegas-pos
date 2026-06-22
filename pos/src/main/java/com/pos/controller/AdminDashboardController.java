@@ -22,6 +22,9 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -64,8 +67,8 @@ public class AdminDashboardController {
     @FXML private TableView<Product> stockTable;
     @FXML private TableColumn<Product, String> colStockBarcode;
     @FXML private TableColumn<Product, String> colStockName;
-    @FXML private TableColumn<Product, Integer> colCurrentStock;
-    @FXML private TableColumn<Product, Integer> colMinLevel;
+    @FXML private TableColumn<Product, Double> colCurrentStock;
+    @FXML private TableColumn<Product, Double> colMinLevel;
     @FXML private TableColumn<Product, String> colStockRetail;
     @FXML private TableColumn<Product, String> colStockCategory;
     
@@ -75,7 +78,7 @@ public class AdminDashboardController {
     @FXML private TableColumn<Product, String> colApprovalCategory;
     @FXML private TableColumn<Product, String> colApprovalRetail;
     @FXML private TableColumn<Product, String> colApprovalWholesale;
-    @FXML private TableColumn<Product, Integer> colApprovalStock;
+    @FXML private TableColumn<Product, Double> colApprovalStock;
     @FXML private TableColumn<Product, String> colApprovalDate;
     
     @FXML private Label todayRevenueLabel;
@@ -83,6 +86,7 @@ public class AdminDashboardController {
     @FXML private Label analyticsProductsLabel;
     @FXML private Label netProfitLabel;
     @FXML private ListView<String> topCategoriesList;
+    @FXML private ComboBox<String> timeframeSelector;
     
     @FXML private javafx.scene.chart.LineChart<String, Number> revenueChart;
     @FXML private javafx.scene.chart.PieChart topItemsChart;
@@ -90,7 +94,7 @@ public class AdminDashboardController {
 
     private Stage primaryStage;
     private User currentUser;
-    private boolean isDarkMode = false;
+    private boolean isLargeText = false;
     
     public AdminDashboardController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -133,13 +137,48 @@ public class AdminDashboardController {
         if (userManagementViewController != null) {
             userManagementViewController.setPrimaryStage(primaryStage);
         }
+        if (timeframeSelector != null) {
+            timeframeSelector.setItems(FXCollections.observableArrayList("Today", "Last 7 Days", "This Month", "This Year"));
+            timeframeSelector.setValue("Last 7 Days");
+            timeframeSelector.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    refreshAnalytics(newVal);
+                }
+            });
+        }
         showProductManagement();
+        javafx.application.Platform.runLater(this::applyTheme);
     }
     
     private void setupStockTable() {
         colStockBarcode.setCellValueFactory(new PropertyValueFactory<>("barcode"));
         colStockName.setCellValueFactory(new PropertyValueFactory<>("name"));
         colCurrentStock.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
+        
+        colCurrentStock.setCellFactory(column -> new TableCell<Product, Double>() {
+            @Override
+            protected void updateItem(Double stock, boolean empty) {
+                super.updateItem(stock, empty);
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText("");
+                    setStyle("");
+                } else {
+                    Product product = getTableRow().getItem();
+                    if (product.getParentBarcode() != null) {
+                        setText("Dynamic");
+                        setStyle("-fx-text-fill: #666666;"); // Neutral color
+                    } else {
+                        setText(String.format("%.2f", stock));
+                        if (stock < 5) {
+                            setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                        } else {
+                            setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                        }
+                    }
+                }
+            }
+        });
+
         colMinLevel.setCellValueFactory(new PropertyValueFactory<>("minStockLevel"));
         colStockRetail.setCellValueFactory(cell -> 
             new javafx.beans.property.SimpleStringProperty("KSh" + cell.getValue().getRetailPrice().toPlainString()));
@@ -165,6 +204,19 @@ public class AdminDashboardController {
         colApprovalWholesale.setCellValueFactory(cell -> 
             new javafx.beans.property.SimpleStringProperty("KSh" + cell.getValue().getWholesalePrice().toPlainString()));
         colApprovalStock.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
+
+        colApprovalStock.setCellFactory(column -> new TableCell<Product, Double>() {
+            @Override
+            protected void updateItem(Double stock, boolean empty) {
+                super.updateItem(stock, empty);
+                if (empty || stock == null) {
+                    setText("");
+                } else {
+                    setText(String.format("%.2f", stock));
+                }
+            }
+        });
+
         colApprovalDate.setCellValueFactory(cell -> 
             new javafx.beans.property.SimpleStringProperty(cell.getValue().getCreatedAt().format(dateFormatter)));
         
@@ -287,18 +339,12 @@ public class AdminDashboardController {
     
     @FXML
     public void onNavHover(javafx.scene.input.MouseEvent event) {
-        if (event.getSource() instanceof Button) {
-            Button btn = (Button) event.getSource();
-            btn.setStyle("-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: #4a5568; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;");
-        }
+        // Handled cleanly via CSS .nav-button:hover
     }
     
     @FXML
     public void onNavExit(javafx.scene.input.MouseEvent event) {
-        if (event.getSource() instanceof Button) {
-            Button btn = (Button) event.getSource();
-            btn.setStyle("-fx-font-size: 14; -fx-text-fill: white; -fx-background-color: transparent; -fx-padding: 15 20; -fx-alignment: CENTER_LEFT;");
-        }
+        // Handled cleanly via CSS .nav-button
     }
     
     @FXML
@@ -473,6 +519,7 @@ public class AdminDashboardController {
             dialog.setScene(new Scene(root));
             dialog.initModality(Modality.APPLICATION_MODAL);
             dialog.setResizable(false);
+            dialog.sizeToScene();
             dialog.showAndWait();
             
             if (controller.isApproved()) {
@@ -487,43 +534,108 @@ public class AdminDashboardController {
     }
     
     private void loadAnalyticsData() {
+        String timeframe = "Last 7 Days";
+        if (timeframeSelector != null && timeframeSelector.getValue() != null) {
+            timeframe = timeframeSelector.getValue();
+        }
+        refreshAnalytics(timeframe);
+    }
+
+    private void refreshAnalytics(String timeframe) {
         try {
-            double todayRevenue = analyticsService.getTodayRevenue();
-            int todayTransactions = analyticsService.getTodayTransactionCount();
+            java.time.LocalDate startDate = java.time.LocalDate.now();
+            java.time.LocalDate endDate = java.time.LocalDate.now();
+            boolean groupByMonth = false;
+            
+            switch (timeframe) {
+                case "Today" -> {
+                    startDate = java.time.LocalDate.now();
+                    endDate = java.time.LocalDate.now();
+                }
+                case "Last 7 Days" -> {
+                    startDate = java.time.LocalDate.now().minusDays(6);
+                    endDate = java.time.LocalDate.now();
+                }
+                case "This Month" -> {
+                    startDate = java.time.LocalDate.now().withDayOfMonth(1);
+                    endDate = java.time.LocalDate.now();
+                }
+                case "This Year" -> {
+                    startDate = java.time.LocalDate.now().withDayOfYear(1);
+                    endDate = java.time.LocalDate.now();
+                    groupByMonth = true;
+                }
+            }
+            
+            double revenue = analyticsService.getRevenue(startDate, endDate);
+            int transactions = analyticsService.getTransactionCount(startDate, endDate);
             int totalProductsCount = dbManager.getAllProducts().size();
+            double netProfit = analyticsService.calculateNetProfit(startDate, endDate);
             
-            todayRevenueLabel.setText("KSh" + String.format("%,.2f", todayRevenue));
-            todayTransactionsLabel.setText(String.valueOf(todayTransactions));
-            analyticsProductsLabel.setText(String.valueOf(totalProductsCount));
-            
-            // New Net Profit calculation
-            double netProfit = analyticsService.calculateNetProfit(java.time.LocalDate.now(), java.time.LocalDate.now());
+            todayRevenueLabel.setText("KSh" + String.format("%,.2f", revenue));
+            todayTransactionsLabel.setText(String.valueOf(transactions));
+            if (analyticsProductsLabel != null) {
+                analyticsProductsLabel.setText(String.valueOf(totalProductsCount));
+            }
             netProfitLabel.setText("KSh" + String.format("%,.2f", netProfit));
             
-            // Top Categories list
+            // Update Top Categories list
             List<Map<String, Object>> topCategories = analyticsService.getTopSellingCategories();
             topCategoriesList.getItems().clear();
             for (Map<String, Object> cat : topCategories) {
                 topCategoriesList.getItems().add(cat.get("category") + " (" + cat.get("totalSold") + " items)");
             }
             
-            updateCharts();
-            
-        } catch (Exception e) {
-            logger.error("Error loading analytics", e);
-        }
-    }
-    
-    private void updateCharts() {
-        // Implementation of chart updates if needed, 
-        // existing charts logic should be here or called from here
-        try {
             // Update LineChart (Revenue)
-            List<Map<String, Object>> revenueData = analyticsService.getLast7DaysRevenue();
+            List<Map<String, Object>> revenueData = analyticsService.getRevenueChartData(startDate, endDate, groupByMonth);
             javafx.scene.chart.XYChart.Series<String, Number> series = new javafx.scene.chart.XYChart.Series<>();
-            series.setName("Revenue");
+            series.setName("Revenue (" + timeframe + ")");
+            
+            // Clear categories if X-axis is CategoryAxis to prevent scrambled/clumped labels
+            if (revenueChart.getXAxis() instanceof javafx.scene.chart.CategoryAxis) {
+                ((javafx.scene.chart.CategoryAxis) revenueChart.getXAxis()).getCategories().clear();
+            }
+            
             for (Map<String, Object> data : revenueData) {
-                series.getData().add(new javafx.scene.chart.XYChart.Data<>((String)data.get("date"), (Number)data.get("revenue")));
+                String dateString = (String) data.get("date");
+                Number revVal = (Number) data.get("revenue");
+                
+                String formattedLabel = dateString; // Fallback
+                try {
+                    switch (timeframe) { // Use ComboBox value variable
+                        case "This Year":
+                            // Assuming DB returns "YYYY-MM"
+                            YearMonth ym = YearMonth.parse(dateString);
+                            formattedLabel = ym.format(DateTimeFormatter.ofPattern("MMM")); // "Jan", "Feb"
+                            break;
+                        case "Last 7 Days":
+                            // Assuming DB returns "YYYY-MM-DD"
+                            LocalDate ld7 = LocalDate.parse(dateString);
+                            formattedLabel = ld7.format(DateTimeFormatter.ofPattern("EEE")); // "Mon", "Tue"
+                            break;
+                        case "This Month":
+                            // Assuming DB returns "YYYY-MM-DD"
+                            LocalDate ldMonth = LocalDate.parse(dateString);
+                            formattedLabel = ldMonth.format(DateTimeFormatter.ofPattern("d MMM")); // "12 Jun"
+                            break;
+                        case "Today":
+                            // Assuming DB returns hour as "HH" or "YYYY-MM-DD HH"
+                            if (dateString.contains("-") && !dateString.contains(" ")) {
+                                LocalDate ldToday = LocalDate.parse(dateString);
+                                formattedLabel = ldToday.format(DateTimeFormatter.ofPattern("d MMM"));
+                            } else {
+                                int hour = Integer.parseInt(dateString.contains(" ") ? dateString.split(" ")[1] : dateString);
+                                LocalTime time = LocalTime.of(hour, 0);
+                                formattedLabel = time.format(DateTimeFormatter.ofPattern("h a")); // "2 PM"
+                            }
+                            break;
+                    }
+                } catch (Exception e) {
+                    System.err.println("Date parsing error for label: " + dateString);
+                    // Keep the fallback raw string if parsing fails
+                }
+                
+                series.getData().add(new javafx.scene.chart.XYChart.Data<>(formattedLabel, revVal));
             }
             revenueChart.getData().clear();
             revenueChart.getData().add(series);
@@ -537,7 +649,7 @@ public class AdminDashboardController {
             topItemsChart.setData(pieData);
             
         } catch (Exception e) {
-            logger.error("Error updating charts", e);
+            logger.error("Error refreshing analytics for timeframe: " + timeframe, e);
         }
     }
     
@@ -550,6 +662,7 @@ public class AdminDashboardController {
             Stage stage = (Stage) contentArea.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas POS - Point of Sale");
+            stage.setResizable(true);
             stage.show();
             stage.setMaximized(true);
             
@@ -569,6 +682,7 @@ public class AdminDashboardController {
             Stage stage = (Stage) ((javafx.scene.Node) event.getSource()).getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas POS - Cashier Terminal");
+            stage.setResizable(true);
             stage.show();
             stage.setMaximized(true);
         } catch (Exception e) {
@@ -595,7 +709,8 @@ public class AdminDashboardController {
             // 4. Swap the scene on the existing stage (NO new Stage())
             stage.setScene(new Scene(root));
             stage.setTitle("Vegas POS - Login");
-            stage.setResizable(true);
+            stage.setResizable(false);
+            stage.sizeToScene();
             stage.centerOnScreen();
             stage.show();
 
@@ -605,6 +720,46 @@ public class AdminDashboardController {
             logger.info("User logged out - scene swapped on existing stage");
         } catch (Exception e) {
             logger.error("Error loading login screen", e);
+        }
+    }
+
+    @FXML
+    private void toggleTheme() {
+        com.pos.util.BrandingConstants.isDarkMode = !com.pos.util.BrandingConstants.isDarkMode;
+        applyTheme();
+    }
+
+    private void applyTheme() {
+        if (themeToggleButton != null && themeToggleButton.getScene() != null) {
+            javafx.scene.Parent root = themeToggleButton.getScene().getRoot();
+            if (com.pos.util.BrandingConstants.isDarkMode) {
+                if (!root.getStyleClass().contains("dark-theme")) {
+                    root.getStyleClass().add("dark-theme");
+                }
+                if (!root.getStyleClass().contains("dark-mode")) {
+                    root.getStyleClass().add("dark-mode");
+                }
+                themeToggleButton.setText("☀️ Light Mode");
+            } else {
+                root.getStyleClass().remove("dark-theme");
+                root.getStyleClass().remove("dark-mode");
+                themeToggleButton.setText("🌙 Dark Mode");
+            }
+        }
+    }
+
+    @FXML
+    private void toggleTextSize() {
+        isLargeText = !isLargeText;
+        if (contentArea != null && contentArea.getScene() != null) {
+            javafx.scene.Scene scene = contentArea.getScene();
+            if (isLargeText) {
+                if (!scene.getRoot().getStyleClass().contains("large-text")) {
+                    scene.getRoot().getStyleClass().add("large-text");
+                }
+            } else {
+                scene.getRoot().getStyleClass().remove("large-text");
+            }
         }
     }
 

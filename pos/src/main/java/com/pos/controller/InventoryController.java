@@ -44,6 +44,7 @@ public class InventoryController {
     private TableColumn<Product, String> colProductSupplier;
 
     @FXML private TableColumn<Product, String> colProductStatus;
+    @FXML private Button openBulkBtn;
 
     public InventoryController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -65,7 +66,23 @@ public class InventoryController {
             if (productFormController != null) {
                 productFormController.setParentController(this);
             }
+            bootstrapInventorySync();
         });
+    }
+
+    private void bootstrapInventorySync() {
+        try {
+            List<Product> unsynced = dbManager.getUnsyncedProducts();
+            if (!unsynced.isEmpty()) {
+                logger.info("Found {} unsynced products. Starting bootstrap sync...", unsynced.size());
+                com.pos.service.SyncService syncService = com.pos.service.SyncService.getInstance();
+                for (Product p : unsynced) {
+                    syncService.syncProductToCloud(p);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error during bootstrap inventory sync", e);
+        }
     }
 
     private void setupProductsTable() {
@@ -77,6 +94,32 @@ public class InventoryController {
         colProductWholesale.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty("KSh" + cell.getValue().getWholesalePrice().toPlainString()));
         colProductStock.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
+        
+        colProductStock.setCellFactory(column -> new TableCell<Product, Double>() {
+            @Override
+            protected void updateItem(Double stock, boolean empty) {
+                super.updateItem(stock, empty);
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText("");
+                    setStyle("");
+                } else {
+                    Product product = getTableRow().getItem();
+                    setText(String.format("%.2f", stock));
+                    if (product.getParentBarcode() != null) {
+                        // This is a fraction (e.g., Sugar Half)
+                        setStyle("-fx-text-fill: #666666;"); // Neutral color
+                    } else {
+                        // This is a Master product
+                        if (stock <= product.getMinStockLevel()) {
+                            setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                        } else {
+                            setStyle("-fx-text-fill: green;");
+                        }
+                    }
+                }
+            }
+        });
+
         colProductUnit.setCellValueFactory(new PropertyValueFactory<>("unitType"));
         colProductSupplier.setCellValueFactory(new PropertyValueFactory<>("supplier"));
         colProductStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
@@ -140,6 +183,37 @@ public class InventoryController {
             showError("Please select a product to edit");
             return;
         }
+        
+        // Redirect portions, singles, packets, etc. to their topmost master product (e.g. Sugar Bag)
+        Product current = selected;
+        while (current != null) {
+            String parentBc = null;
+            if (current.getParentBarcode() != null && !current.getParentBarcode().isEmpty() && current.getDeductionRatio() < 1.0) {
+                parentBc = current.getParentBarcode();
+            } else if (current.getParentWholesaleBarcode() != null && !current.getParentWholesaleBarcode().isEmpty()) {
+                parentBc = current.getParentWholesaleBarcode();
+            }
+
+            if (parentBc == null) {
+                break;
+            }
+
+            try {
+                Optional<Product> parentOpt = dbManager.findProductByBarcode(parentBc);
+                if (parentOpt.isPresent()) {
+                    current = parentOpt.get();
+                } else {
+                    break;
+                }
+            } catch (Exception e) {
+                logger.error("Error finding parent product for topmost redirect: " + parentBc, e);
+                break;
+            }
+        }
+        if (current != null) {
+            selected = current;
+        }
+        
         if (productFormController != null) {
             productFormController.loadProductForEdit(selected);
         }
@@ -164,6 +238,10 @@ public class InventoryController {
             try {
                 selected.setActive(false);
                 dbManager.updateProduct(selected);
+                
+                // Real-time sync to cloud
+                com.pos.service.SyncService.getInstance().syncProductToCloud(selected);
+                
                 refreshTable();
                 showSuccess("Product deleted successfully");
             } catch (Exception e) {
@@ -215,6 +293,10 @@ public class InventoryController {
             }
 
             dbManager.updateProductStock(selected.getId(), newStock);
+            selected.setStockQuantity(newStock);
+            
+            // Real-time sync to cloud
+            com.pos.service.SyncService.getInstance().syncProductToCloud(selected);
 
             Optional<User> currentUser = authService.getCurrentUser();
             if (currentUser.isPresent()) {
@@ -252,6 +334,72 @@ public class InventoryController {
         } catch (Exception e) {
             logger.error("Error adjusting stock", e);
             showError("Error adjusting stock: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleOpenBulkPacket() {
+        Product packetProduct = productsTable.getSelectionModel().getSelectedItem();
+        if (packetProduct == null) {
+            showError("Please select a packet/bulk product to open");
+            return;
+        }
+
+        if (packetProduct.getStockQuantity() < 1) {
+            showError("Not enough stock in " + packetProduct.getName() + " to open a packet.");
+            return;
+        }
+
+        try {
+            // Find the immediate child product that this packet converts into
+            Product baseProduct = dbManager.findImmediateChildProduct(packetProduct.getBarcode());
+            if (baseProduct == null || baseProduct.getBarcode().equals(packetProduct.getBarcode())) {
+                showError("This product does not have a linked retail/piece item to convert into.");
+                return;
+            }
+
+            // Perform conversion using the robust JIT conversion logic
+            boolean success = dbManager.attemptAutoConversion(baseProduct.getBarcode());
+            if (!success) {
+                showError("Conversion failed. Please verify that conversion yield settings are valid.");
+                return;
+            }
+
+            // Reload products from database to get the updated stock levels and remainder state
+            Product updatedPacket = dbManager.getProduct(packetProduct.getBarcode());
+            Product updatedBase = dbManager.getProduct(baseProduct.getBarcode());
+
+            if (updatedPacket != null && updatedBase != null) {
+                // Sync to cloud
+                com.pos.service.SyncService syncService = com.pos.service.SyncService.getInstance();
+                syncService.syncProductToCloud(updatedPacket);
+                syncService.syncProductToCloud(updatedBase);
+
+                // Log activity with user context
+                Optional<User> currentUser = authService.getCurrentUser();
+                if (currentUser.isPresent()) {
+                    ActivityLog log = new ActivityLog(
+                            currentUser.get().getId(),
+                            currentUser.get().getFullName(),
+                            ActivityLog.ActionType.STOCK_ADJUSTMENT,
+                            "Manually opened package: " + packetProduct.getName(),
+                            "Packet stock: " + packetProduct.getStockQuantity() + " -> " + updatedPacket.getStockQuantity() + 
+                            ", Child " + baseProduct.getName() + " stock: " + baseProduct.getStockQuantity() + " -> " + updatedBase.getStockQuantity()
+                    );
+                    dbManager.insertActivityLog(log);
+                }
+
+                showSuccess("Successfully opened bulk packet!\n" +
+                            "Packet Stock: " + updatedPacket.getStockQuantity() + "\n" +
+                            "Retail Stock: " + updatedBase.getStockQuantity());
+            } else {
+                showSuccess("Successfully opened bulk packet!");
+            }
+            refreshTable();
+
+        } catch (Exception e) {
+            logger.error("Error opening bulk packet", e);
+            showError("Error opening bulk packet: " + e.getMessage());
         }
     }
 

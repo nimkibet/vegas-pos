@@ -15,6 +15,8 @@ public class Customer {
     private String phone;
     private LocalDateTime createdAt;
     private boolean isSynced;
+    /** Maximum credit allowed. 0 = no limit set (unlimited). */
+    private double creditLimit = 0.0;
     
     /**
      * Default constructor - generates new UUID
@@ -76,6 +78,14 @@ public class Customer {
     
     public void setSynced(boolean synced) {
         isSynced = synced;
+    }
+
+    public double getCreditLimit() {
+        return creditLimit;
+    }
+
+    public void setCreditLimit(double creditLimit) {
+        this.creditLimit = creditLimit;
     }
     
     @Override

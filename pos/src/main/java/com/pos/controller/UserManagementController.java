@@ -140,6 +140,7 @@ public class UserManagementController {
             dialog.initModality(Modality.APPLICATION_MODAL);
             dialog.initOwner(primaryStage);
             dialog.setResizable(false);
+            dialog.sizeToScene();
             dialog.showAndWait();
             
             if (formController.isSaved()) {
@@ -174,6 +175,7 @@ public class UserManagementController {
             dialog.initModality(Modality.APPLICATION_MODAL);
             dialog.initOwner(primaryStage);
             dialog.setResizable(false);
+            dialog.sizeToScene();
             dialog.showAndWait();
             
             if (formController.isSaved()) {

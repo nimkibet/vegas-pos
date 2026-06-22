@@ -6,222 +6,173 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.shape.Circle?>
-<?import javafx.scene.shape.MoveTo?>
-<?import javafx.scene.shape.Path?>
-<?import javafx.scene.shape.LineTo?>
-<?import javafx.scene.shape.ArcTo?>
 
-<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+<BorderPane fx:id="rootPane" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
             fx:controller="com.pos.controller.POSController" onKeyPressed="#handleGlobalKeyEvent"
-            stylesheets="@../css/style.css">
+            stylesheets="@../css/style.css" styleClass="root">
     
     <!-- Top Header Bar -->
     <top>
-        <HBox style="-fx-background-color: #1a5f2a; -fx-padding: 12 20;" alignment="CENTER_LEFT" maxWidth="Infinity">
+        <HBox styleClass="glass-header" alignment="CENTER_LEFT" maxWidth="Infinity">
             <!-- Logo/Title -->
-            <HBox spacing="10" alignment="CENTER_LEFT">
-                <Label text="🛒" style="-fx-font-size: 24; -fx-text-fill: white;" />
-                <Label text="VEGAS POS" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: white;" />
+            <HBox spacing="12" alignment="CENTER_LEFT">
+                <StackPane style="-fx-background-color: white; -fx-background-radius: 8; -fx-padding: 5;">
+                    <Label text="V" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #064e3b;" />
+                </StackPane>
+                <VBox alignment="CENTER_LEFT">
+                    <Label text="VEGAS POS" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: white;" />
+                    <Label text="Pro Terminal" style="-fx-font-size: 10; -fx-text-fill: rgba(255,255,255,0.7); -fx-letter-spacing: 1;" />
+                </VBox>
             </HBox>
             
             <Region HBox.hgrow="ALWAYS" />
             
             <!-- User Info -->
-            <HBox spacing="20" alignment="CENTER_RIGHT">
-                <Label fx:id="userLabel" text="User: Admin" style="-fx-font-size: 13; -fx-text-fill: white;" />
-                
-                <!-- Status -->
-                <HBox spacing="5" alignment="CENTER">
-                    <Circle radius="4" fill="#48bb78" />
-                    <Label fx:id="statusLabel" text="Online" style="-fx-font-size: 12; -fx-text-fill: white;" />
+            <HBox spacing="25" alignment="CENTER_RIGHT">
+                <HBox spacing="10" alignment="CENTER">
+                    <Button fx:id="themeToggleButton" onAction="#toggleTheme" style="-fx-background-color: rgba(255,255,255,0.15); -fx-background-radius: 50; -fx-padding: 8; -fx-text-fill: white;" text="🌙" />
+                    <Button text="A± Text Size" onAction="#toggleTextSize" styleClass="nav-button" style="-fx-text-fill: white; -fx-border-color: rgba(255,255,255,0.3);" />
+                    <VBox alignment="CENTER_RIGHT">
+                        <Label fx:id="userLabel" text="Admin User" style="-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: white;" />
+                        <HBox spacing="5" alignment="CENTER_RIGHT">
+                            <Circle radius="3" fill="#10b981" />
+                            <Label fx:id="statusLabel" text="Online" style="-fx-font-size: 10; -fx-text-fill: #ecfdf5;" />
+                        </HBox>
+                    </VBox>
+                    <Button fx:id="profileButton" onAction="#handleProfile" style="-fx-background-color: rgba(255,255,255,0.15); -fx-background-radius: 50; -fx-padding: 8; -fx-text-fill: white;" text="👤" />
                 </HBox>
-                
-                <!-- Profile Button -->
-                <Button text="Profile" onAction="#handleProfile" style="-fx-font-size: 12; -fx-padding: 6 12;" />
             </HBox>
         </HBox>
     </top>
     
     <!-- Main Content Area -->
     <center>
-        <SplitPane dividerPositions="0.5" style="-fx-background-color: transparent;">
+        <SplitPane dividerPositions="0.6" style="-fx-background-color: transparent; -fx-padding: 15;">
             <!-- Left Products Panel -->
-            <VBox style="-fx-padding: 15; -fx-spacing: 12;" prefWidth="600">
-                <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 15;" VBox.vgrow="ALWAYS">
-                    <children>
-                        <VBox spacing="10">
-                            <children>
-                                <HBox alignment="CENTER_LEFT" spacing="10">
-                                    <children>
-                                        <Label text="Products" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #166534;" HBox.hgrow="ALWAYS" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Button text="Refresh" onAction="#loadProducts" />
-                                    </children>
-                                </HBox>
-                                
-                                <Button fx:id="pricingModeButton" text="🛒 Mode: RETAIL (Click for Wholesale)" onAction="#togglePricingMode" maxWidth="Infinity" prefHeight="45.0" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-cursor: hand;" />
-                                
-                                <HBox spacing="10">
-                                    <children>
-                                        <TextField fx:id="searchField" promptText="Search products by name or barcode..." HBox.hgrow="ALWAYS" />
-                                        <Button text="Search" onAction="#handleSearch" styleClass="btn-primary" />
-                                    </children>
-                                </HBox>
-                            </children>
-                        </VBox>
-                        
-                        <!-- Products Table -->
-                        <TableView fx:id="productTable" VBox.vgrow="ALWAYS" styleClass="table-view">
-                            <columns>
-                                <TableColumn text="Barcode" fx:id="colBarcode" prefWidth="100" />
-                                <TableColumn text="Product Name" fx:id="colProductName" prefWidth="200" />
-                                <TableColumn text="Retail" fx:id="colRetailPrice" prefWidth="80" />
-                                <TableColumn text="Wholesale" fx:id="colWholesalePrice" prefWidth="80" />
-                                <TableColumn text="Stock" fx:id="colStock" prefWidth="60" />
-                            </columns>
-                            <contextMenu>
-                                <ContextMenu>
-                                    <items>
-                                        <MenuItem text="Add Single to Cart" onAction="#handleContextAddSingleToCart" />
-                                        <MenuItem fx:id="contextMenuAddBoxItem" text="Add Box to Cart" onAction="#handleAddBoxFromTable" />
-                                    </items>
-                                </ContextMenu>
-                            </contextMenu>
-                        </TableView>
-                        
-                        <!-- Quick Add Controls -->
-                        <VBox style="-fx-background-color: #f7fafc; -fx-padding: 12; -fx-background-radius: 8;" spacing="10">
-                            <children>
-                                <Label text="Quick Add" style="-fx-font-size: 13; -fx-font-weight: bold; -fx-text-fill: #4a5568;" />
-                                <HBox spacing="15" alignment="CENTER_LEFT">
-                                    <children>
-                                        <TextField fx:id="barcodeField" promptText="Enter barcode" HBox.hgrow="ALWAYS" 
-                                                   onAction="#handleAddToCartByBarcode" onKeyPressed="#handleBarcodeKeyPress"
-                                                   style="-fx-font-size: 13; -fx-padding: 10;" />
-                                        <TextField fx:id="quantityField" text="1" prefWidth="70" style="-fx-font-size: 13; -fx-padding: 10;" />
-                                        <Button text="Add to Cart" onAction="#handleAddToCart" styleClass="btn-success" maxWidth="Infinity" />
-                                        <Button fx:id="addBoxButton" text="Add Box" onAction="#handleAddBoxFromTable" styleClass="btn-success" maxWidth="Infinity" />
-                                    </children>
-                                </HBox>
-                            </children>
-                        </VBox>
-                        
-                        <!-- Actions -->
-                        <HBox spacing="10">
-                            <children>
-                                <Button text="Quick Add Product" onAction="#handleQuickAddProduct" styleClass="btn-info" maxWidth="Infinity" />
-                                <Region HBox.hgrow="ALWAYS" />
-                                <Button text="Print Label" onAction="#handlePrintLabel" style="-fx-font-size: 12; -fx-padding: 10 15;" maxWidth="Infinity" />
-                            </children>
-                        </HBox>
-                    </children>
+            <VBox spacing="15" prefWidth="700">
+                <!-- Search & Command Bar -->
+                <VBox styleClass="card" spacing="12">
+                    <HBox alignment="CENTER_LEFT" spacing="15">
+                        <Label text="Inventory" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <!-- Pricing mode MUST be a Button, not ToggleButton, to match POSController field type -->
+                        <Button fx:id="pricingModeButton" text="Mode: RETAIL" onAction="#togglePricingMode" styleClass="button" />
+                        <Button fx:id="refreshButton" text="↻ Refresh" onAction="#loadProducts" styleClass="btn-ghost" />
+                    </HBox>
+                    
+                    <HBox spacing="10">
+                        <TextField fx:id="searchField" promptText="Search by name, category or scan barcode..." HBox.hgrow="ALWAYS" style="-fx-pref-height: 45;" />
+                        <Button text="Search" onAction="#handleSearch" styleClass="btn-primary" prefHeight="45" />
+                    </HBox>
                 </VBox>
+                
+                <!-- Products Table Area -->
+                <VBox styleClass="card" VBox.vgrow="ALWAYS" style="-fx-padding: 0;">
+                    <TableView fx:id="productTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                        <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
+                        <columns>
+                            <TableColumn text="Barcode" fx:id="colBarcode" prefWidth="120" />
+                            <TableColumn text="Product Name" fx:id="colProductName" prefWidth="250" />
+                            <TableColumn text="Retail" fx:id="colRetailPrice" prefWidth="90" />
+                            <TableColumn text="Wholesale" fx:id="colWholesalePrice" prefWidth="90" />
+                            <TableColumn text="Stock" fx:id="colStock" prefWidth="80" />
+                        </columns>
+                        <contextMenu>
+                            <ContextMenu>
+                                <items>
+                                    <MenuItem text="Add Single to Cart" onAction="#handleContextAddSingleToCart" />
+                                    <MenuItem fx:id="contextMenuAddBoxItem" text="Add Box to Cart" onAction="#handleAddBoxFromTable" />
+                                </items>
+                            </ContextMenu>
+                        </contextMenu>
+                    </TableView>
+                </VBox>
+                
+                <!-- Quick Entry Footer -->
+                <HBox styleClass="card" spacing="15" alignment="CENTER_LEFT" style="-fx-padding: 15;">
+                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                        <Label text="BARCODE ENTRY" style="-fx-font-size: 9; -fx-font-weight: bold; -fx-text-fill: #64748b;" />
+                        <TextField fx:id="barcodeField" promptText="Enter Barcode" 
+                                   onAction="#handleAddToCartByBarcode" onKeyPressed="#handleBarcodeKeyPress"
+                                   style="-fx-font-size: 16; -fx-font-weight: bold;" />
+                    </VBox>
+                    <VBox spacing="5" prefWidth="80">
+                        <Label text="QTY" style="-fx-font-size: 9; -fx-font-weight: bold; -fx-text-fill: #64748b;" />
+                        <TextField fx:id="quantityField" text="1" alignment="CENTER" style="-fx-font-size: 16;" />
+                    </VBox>
+                    <Button fx:id="addToCartButton" text="Add Item" onAction="#handleAddToCart" styleClass="btn-success" prefHeight="55" prefWidth="120" />
+                    <Button fx:id="addBoxButton" text="Add Box" onAction="#handleAddBoxFromTable" styleClass="btn-info" prefHeight="55" />
+                </HBox>
+                
+                <!-- Extra Hidden Buttons to satisfy FXML injection if needed -->
+                <HBox managed="false" visible="false">
+                    <Button fx:id="printLabelButton" onAction="#handlePrintLabel" />
+                    <Button fx:id="quickAddProductButton" onAction="#handleQuickAddProduct" />
+                </HBox>
             </VBox>
 
             <!-- Right Cart Panel -->
-            <VBox style="-fx-padding: 15; -fx-spacing: 12;" prefWidth="600">
-                <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-padding: 15;" VBox.vgrow="ALWAYS">
-                    <children>
-                        <!-- Panel Header -->
-                        <HBox spacing="15" alignment="CENTER_LEFT">
-                            <children>
-                                <Label text="Current Sale" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
-                                <Region HBox.hgrow="ALWAYS" />
-                                <HBox spacing="15" alignment="CENTER" HBox.hgrow="ALWAYS" maxWidth="Infinity">
-                                    <children>
-                                        <Button text="Hold Cart" onAction="#handleHoldCart" style="-fx-font-size: 12; -fx-padding: 6 12;"
-                                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                                        <Button text="Recall Cart" onAction="#handleRecallCart" style="-fx-font-size: 12; -fx-padding: 6 12;"
-                                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                                        <Button text="Remove" onAction="#handleRemoveFromCart" styleClass="button"
-                                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                                        <Button text="Clear Cart" onAction="#handleClearCart" styleClass="btn-danger"
-                                                HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                                    </children>
-                                </HBox>
-                            </children>
+            <VBox spacing="15" prefWidth="450">
+                <VBox styleClass="card" VBox.vgrow="ALWAYS" style="-fx-padding: 20 0 0 0;">
+                    <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-padding: 0 20 15 20;">
+                        <Label text="Current Cart" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Button fx:id="clearCartButton" text="🗑" onAction="#handleClearCart" styleClass="btn-danger" style="-fx-padding: 5 10;" />
+                    </HBox>
+                    
+                    <TableView fx:id="cartTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+                        <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
+                        <columns>
+                            <TableColumn text="Item" fx:id="colItemName" prefWidth="180" />
+                            <TableColumn text="Qty" fx:id="colQuantity" prefWidth="120" />
+                            <TableColumn text="Unit" fx:id="colUnitPrice" prefWidth="80" />
+                            <TableColumn text="Total" fx:id="colTotalPrice" prefWidth="100" />
+                        </columns>
+                    </TableView>
+                    
+                    <!-- Totals Section -->
+                    <VBox styleClass="total-panel" spacing="12">
+                        <HBox alignment="CENTER_LEFT">
+                            <VBox>
+                                <Label text="SUBTOTAL" style="-fx-text-fill: #94a3b8; -fx-font-size: 11; -fx-font-weight: bold;" />
+                                <Label fx:id="subtotalLabel" text="KSh 0.00" style="-fx-text-fill: white; -fx-font-size: 18; -fx-font-weight: bold;" />
+                            </VBox>
+                            <Region HBox.hgrow="ALWAYS" />
+                            <VBox alignment="CENTER_RIGHT">
+                                <Label text="DISCOUNT" style="-fx-text-fill: #94a3b8; -fx-font-size: 11; -fx-font-weight: bold;" />
+                                <Label fx:id="discountLabel" text="KSh 0.00" style="-fx-text-fill: #fbbf24; -fx-font-size: 16; -fx-font-weight: bold;" />
+                            </VBox>
                         </HBox>
                         
-                        <!-- Cart Table -->
-                        <TableView fx:id="cartTable" VBox.vgrow="ALWAYS" minHeight="0" maxHeight="Infinity" styleClass="table-view">
-                            <columns>
-                                <TableColumn text="Item" fx:id="colItemName" prefWidth="200" editable="false" />
-                                <TableColumn text="Qty" fx:id="colQuantity" prefWidth="150" />
-                                <TableColumn text="Unit Price" fx:id="colUnitPrice" prefWidth="120" />
-                                <TableColumn text="Total" fx:id="colTotalPrice" prefWidth="120" editable="false" />
-                            </columns>
-                        </TableView>
+                        <!-- Tax Label required by controller -->
+                        <HBox alignment="CENTER_RIGHT">
+                            <Label text="TAX (16%): " style="-fx-text-fill: #94a3b8; -fx-font-size: 10;" />
+                            <Label fx:id="taxLabel" text="KSh 0.00" style="-fx-text-fill: #94a3b8; -fx-font-size: 10;" />
+                        </HBox>
+
+                        <Separator style="-fx-opacity: 0.1;" />
                         
-                        <!-- Totals Panel -->
-                        <VBox style="-fx-background-color: #f0fdf4; -fx-padding: 15; -fx-border-color: #bbf7d0; -fx-border-radius: 8; -fx-background-radius: 8;" spacing="8">
-                            <children>
-                                <HBox>
-                                    <children>
-                                        <Label text="Subtotal" style="-fx-font-size: 14; -fx-text-fill: #4a5568;" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Label fx:id="subtotalLabel" text="KSh0.00" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #2d3748;" />
-                                    </children>
-                                </HBox>
-                                <HBox>
-                                    <children>
-                                        <Label text="Tax (16%)" style="-fx-font-size: 14; -fx-text-fill: #4a5568;" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Label fx:id="taxLabel" text="KSh0.00" style="-fx-font-size: 14; -fx-text-fill: #2d3748;" />
-                                    </children>
-                                </HBox>
-                                <HBox>
-                                    <children>
-                                        <Label text="Discount" style="-fx-font-size: 14; -fx-text-fill: #4a5568;" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Label fx:id="discountLabel" text="KSh0.00" style="-fx-font-size: 14; -fx-text-fill: #2d3748;" />
-                                    </children>
-                                </HBox>
-                                
-                                <StackPane prefHeight="1" style="-fx-background-color: #bbf7d0;" />
-                                
-                                <HBox>
-                                    <children>
-                                        <Label text="TOTAL" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Label fx:id="totalLabel" text="KSh0.00" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #28a745;" />
-                                    </children>
-                                </HBox>
-                                
-                                <StackPane prefHeight="1" style="-fx-background-color: #bbf7d0;" />
-                                
-                                <HBox>
-                                    <children>
-                                        <Label text="Amount Paid" style="-fx-font-size: 14; -fx-text-fill: #4a5568;" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Label fx:id="amountPaidField" text="KSh0.00" style="-fx-font-size: 14; -fx-text-fill: #2d3748;" />
-                                    </children>
-                                </HBox>
-                                <HBox>
-                                    <children>
-                                        <Label text="Change" style="-fx-font-size: 14; -fx-text-fill: #4a5568;" />
-                                        <Region HBox.hgrow="ALWAYS" />
-                                        <Label fx:id="changeLabel" text="KSh0.00" style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #28a745;" />
-                                    </children>
-                                </HBox>
-                            </children>
+                        <VBox alignment="CENTER">
+                            <Label text="TOTAL TO PAY" style="-fx-text-fill: #10b981; -fx-font-size: 12; -fx-font-weight: bold;" />
+                            <Label fx:id="totalLabel" text="KSh 0.00" styleClass="total-label" />
                         </VBox>
                         
-                        <!-- Checkout & printer actions -->
-                        <HBox spacing="15" alignment="CENTER">
-                            <children>
-                                <Button text="CHECKOUT" onAction="#handleCheckout" prefHeight="50" styleClass="btn-primary"
-                                        HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                            </children>
+                        <!-- Hidden calculated fields needed by controller -->
+                        <HBox managed="false" visible="false">
+                            <Label fx:id="amountPaidField" />
+                            <Label fx:id="changeLabel" />
                         </HBox>
-                        <HBox spacing="15" alignment="CENTER">
-                            <children>
-                                <Button text="Print Receipt" onAction="#handlePrintReceipt" styleClass="button"
-                                        HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                                <Button text="Open Cash Drawer" onAction="#handleOpenDrawer" styleClass="button"
-                                        HBox.hgrow="ALWAYS" maxWidth="Infinity" />
-                            </children>
+
+                        <Separator style="-fx-opacity: 0.1;" />
+                        
+                        <HBox spacing="10">
+                            <Button text="HOLD" onAction="#handleHoldCart" styleClass="btn-ghost" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                            <Button text="RECALL" onAction="#handleRecallCart" styleClass="btn-ghost" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
                         </HBox>
-                    </children>
+                        
+                        <Button fx:id="checkoutButton" text="COMPLETE CHECKOUT" onAction="#handleCheckout" styleClass="btn-primary" 
+                                prefHeight="60" maxWidth="Infinity" style="-fx-font-size: 18;" />
+                    </VBox>
                 </VBox>
             </VBox>
         </SplitPane>
@@ -229,15 +180,21 @@
     
     <!-- Bottom Status Bar -->
     <bottom>
-        <HBox style="-fx-background-color: #f7fafc; -fx-padding: 10 20;" spacing="10">
-            <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger" />
+        <HBox styleClass="status-bar" spacing="15" alignment="CENTER_LEFT">
+            <Button fx:id="logoutButton" text="Logout" onAction="#handleLogout" styleClass="btn-danger" style="-fx-padding: 6 15; -fx-font-size: 11;" />
+            <Separator orientation="VERTICAL" />
+            <Button text="💰 Collect Debts" onAction="#handleOpenLedger" styleClass="btn-warning" style="-fx-padding: 6 15; -fx-font-size: 11;" />
+            <Button fx:id="backofficeButton" text="Backoffice" onAction="#handleBackoffice" styleClass="btn-ghost" style="-fx-padding: 6 15; -fx-font-size: 11;" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button text="💰 Collect Debts" onAction="#handleOpenLedger" styleClass="btn-warning" />
-            <Button fx:id="backofficeButton" text="Backoffice" onAction="#handleBackoffice" style="-fx-font-size: 12; -fx-padding: 6 12;" />
-            <Button text="X-Report" onAction="#handleXReport" style="-fx-font-size: 12; -fx-padding: 6 12;" />
-            <Button text="Close Register" onAction="#handleCloseRegister" style="-fx-font-size: 12; -fx-padding: 6 12;" />
+            <Label text="Vegas POS v2.0 • Pro Edition" style="-fx-font-size: 11; -fx-text-fill: #94a3b8; -fx-font-style: italic;" />
             <Region HBox.hgrow="ALWAYS" />
-            <Label text="Vegas Supermarket POS v1.0 • Offline-First Point of Sale System" style="-fx-font-size: 11; -fx-text-fill: #a0aec0;" />
+            
+            <HBox spacing="10">
+                <Button fx:id="printReceiptButton" text="Print Receipt" onAction="#handlePrintReceipt" styleClass="btn-ghost" style="-fx-padding: 6 15; -fx-font-size: 11;" />
+                <Button fx:id="openDrawerButton" text="Open Drawer" onAction="#handleOpenDrawer" styleClass="btn-ghost" style="-fx-padding: 6 15; -fx-font-size: 11;" />
+                <Button text="X-Report" onAction="#handleXReport" styleClass="btn-ghost" style="-fx-padding: 6 15; -fx-font-size: 11;" />
+                <Button text="Close Register" onAction="#handleCloseRegister" styleClass="btn-ghost" style="-fx-padding: 6 15; -fx-font-size: 11;" />
+            </HBox>
         </HBox>
     </bottom>
 </BorderPane>

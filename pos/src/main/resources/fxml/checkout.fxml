@@ -1,117 +1,99 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.RadioButton?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.ToggleGroup?>
-<?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
+<?import javafx.scene.shape.Circle?>
 
-<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pos.controller.CheckoutController">
+<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+           fx:controller="com.pos.controller.CheckoutController"
+           stylesheets="@../css/style.css" styleClass="root">
     
-    <!-- Checkout Card -->
-    <VBox style="-fx-background-color: white; -fx-background-radius: 16;" 
-          alignment="CENTER" spacing="20" prefWidth="500" prefHeight="650">
-        
-        <!-- Header -->
-        <VBox style="-fx-background-color: #1a5f2a; -fx-padding: 20 30; -fx-background-radius: 16 16 0 0;" 
-              alignment="CENTER" spacing="5">
-            <Label text="CHECKOUT" style="-fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: white; -fx-letter-spacing: 2;">
-                <font>
-                    <Font name="Segoe UI Bold" size="22" />
-                </font>
-            </Label>
-            <Label text="Complete your transaction" style="-fx-font-size: 12; -fx-text-fill: white; -fx-opacity: 0.8;" />
-        </VBox>
-        
-        <!-- Body -->
-        <VBox style="-fx-padding: 30; -fx-spacing: 20;" alignment="CENTER" spacing="18">
+    <!-- Modal Card -->
+    <VBox alignment="CENTER" spacing="0" maxWidth="500" maxHeight="700">
+        <VBox styleClass="card" style="-fx-padding: 0; -fx-background-radius: 20;">
             
-            <!-- Total Due Section -->
-            <VBox spacing="5" alignment="CENTER">
-                <Label text="Total Amount Due" style="-fx-font-size: 13; -fx-text-fill: #718096;" />
-                <Label fx:id="totalDueLabel" text="KSh0.00" style="-fx-font-size: 36; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;" />
+            <!-- Header -->
+            <VBox styleClass="glass-header" alignment="CENTER" spacing="8" style="-fx-background-radius: 20 20 0 0; -fx-padding: 30 40;">
+                <Label text="FINAL CHECKOUT" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white; -fx-letter-spacing: 2;" />
+                <Label text="Confirm payment and complete sale" style="-fx-font-size: 11; -fx-text-fill: rgba(255,255,255,0.7);" />
             </VBox>
             
-            <!-- Customer Selection (for Credit) -->
-            <VBox spacing="10" visible="false" fx:id="customerSection">
-                <Label text="Customer" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <ComboBox fx:id="customerDropdown" prefWidth="260" style="-fx-font-size: 14; -fx-padding: 8;" />
-                    <Button text="+" onAction="#handleQuickAddCustomer" styleClass="btn-info"
-                            style="-fx-font-size: 14; -fx-padding: 8 12; -fx-background-color: #17a2b8; -fx-text-fill: white; -fx-background-radius: 4;" />
-                </HBox>
-            </VBox>
-            
-            <!-- Payment Method -->
-            <VBox spacing="10">
-                <Label text="Payment Method" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
-                <HBox spacing="20" alignment="CENTER">
-                    <RadioButton fx:id="cashRadio" text="Cash" selected="true" onAction="#handlePaymentMethodChanged"
-                                style="-fx-font-size: 14; -fx-padding: 8 16;">
-                        <toggleGroup>
+            <!-- Content Body -->
+            <VBox spacing="25" style="-fx-padding: 40 50;">
+                
+                <!-- Amount Summary -->
+                <VBox alignment="CENTER" spacing="10" style="-fx-background-color: #f8fafc; -fx-padding: 25; -fx-background-radius: 12;">
+                    <Label text="GRAND TOTAL DUE" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+                    <Label fx:id="totalDueLabel" text="KSh 0.00" style="-fx-font-size: 36; -fx-font-weight: bold; -fx-text-fill: #064e3b;" />
+                </VBox>
+                
+                <!-- Method Selection -->
+                <VBox spacing="10">
+                    <Label text="SELECT PAYMENT METHOD" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+                    <HBox spacing="10" alignment="CENTER">
+                        <fx:define>
                             <ToggleGroup fx:id="paymentGroup" />
-                        </toggleGroup>
-                    </RadioButton>
-                    <RadioButton fx:id="mpesaRadio" text="M-Pesa" onAction="#handlePaymentMethodChanged" toggleGroup="$paymentGroup"
-                                style="-fx-font-size: 14; -fx-padding: 8 16;" />
-                    <RadioButton fx:id="splitRadio" text="Split" onAction="#handlePaymentMethodChanged" toggleGroup="$paymentGroup"
-                                style="-fx-font-size: 14; -fx-padding: 8 16;" />
-                    <RadioButton fx:id="creditRadio" text="Credit" onAction="#handlePaymentMethodChanged" toggleGroup="$paymentGroup"
-                                style="-fx-font-size: 14; -fx-padding: 8 16;" />
-                </HBox>
-            </VBox>
-            
-            <!-- Split Payment Fields -->
-            <VBox fx:id="splitPaymentFields" spacing="10" visible="false">
-                <Label text="Split Payment" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
+                        </fx:define>
+                        <ToggleButton fx:id="cashRadio" text="CASH" selected="true" toggleGroup="$paymentGroup" onAction="#handlePaymentMethodChanged" styleClass="toggle-button" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <ToggleButton fx:id="mpesaRadio" text="M-PESA" toggleGroup="$paymentGroup" onAction="#handlePaymentMethodChanged" styleClass="toggle-button" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <ToggleButton fx:id="splitRadio" text="SPLIT" toggleGroup="$paymentGroup" onAction="#handlePaymentMethodChanged" styleClass="toggle-button" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <ToggleButton fx:id="creditRadio" text="CREDIT" toggleGroup="$paymentGroup" onAction="#handlePaymentMethodChanged" styleClass="toggle-button" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                    </HBox>
+                </VBox>
+                
+                <!-- Dynamic Input Sections -->
+                <VBox spacing="20">
+                    <!-- Customer (Credit Mode) -->
+                    <VBox fx:id="customerSection" spacing="10" managed="false" visible="false">
+                        <Label text="CUSTOMER NAME" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+                        <HBox spacing="10">
+                            <ComboBox fx:id="customerDropdown" HBox.hgrow="ALWAYS" maxWidth="Infinity" prefHeight="45" />
+                            <Button text="+" onAction="#handleQuickAddCustomer" styleClass="btn-info" prefWidth="45" prefHeight="45" />
+                        </HBox>
+                    </VBox>
+
+                    <!-- Tendered Amount -->
+                    <VBox spacing="8">
+                        <Label text="AMOUNT TENDERED" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+                        <VBox fx:id="singlePaymentContainer">
+                            <TextField fx:id="amountTenderedField" promptText="Enter amount paid" 
+                                      style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #10b981;" 
+                                      alignment="CENTER" prefHeight="55" onAction="#handleConfirmSale" onKeyReleased="#handleCalculateChange" />
+                        </VBox>
+                        <VBox fx:id="splitPaymentContainer" visible="false" managed="false" spacing="10">
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <Label text="Cash Amount: " styleClass="adaptive-text"/>
+                                <TextField fx:id="splitCashInput" promptText="0.00" onKeyReleased="#handleCalculateChange" />
+                            </HBox>
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <Label text="M-PESA Amount: " styleClass="adaptive-text"/>
+                                <TextField fx:id="splitMpesaInput" promptText="0.00" onKeyReleased="#handleCalculateChange" />
+                            </HBox>
+                        </VBox>
+                    </VBox>
+                </VBox>
+                
+                <!-- Change Display -->
+                <VBox alignment="CENTER" spacing="5">
+                    <Label text="CHANGE TO RETURN" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #94a3b8;" />
+                    <Label fx:id="changeLabel" text="KSh 0.00" style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #10b981;" />
+                </VBox>
+                
+                <Label fx:id="errorLabel" style="-fx-text-fill: -fx-danger; -fx-font-size: 12;" alignment="CENTER" maxWidth="Infinity" />
+                
+                <!-- Footer Buttons -->
                 <HBox spacing="15">
-                    <VBox spacing="5">
-                        <Label text="Cash (KSh)" style="-fx-font-size: 12; -fx-text-fill: #718096;" />
-                        <TextField fx:id="cashAmountField" prefWidth="120" style="-fx-font-size: 16; -fx-padding: 8; -fx-alignment: center;"
-                                  promptText="0.00" onAction="#handleCalculateChange" onKeyReleased="#handleCalculateChange" />
-                    </VBox>
-                    <VBox spacing="5">
-                        <Label text="M-Pesa (KSh)" style="-fx-font-size: 12; -fx-text-fill: #718096;" />
-                        <TextField fx:id="mpesaAmountField" prefWidth="120" style="-fx-font-size: 16; -fx-padding: 8; -fx-alignment: center;"
-                                  promptText="0.00" onAction="#handleCalculateChange" onKeyReleased="#handleCalculateChange" />
-                    </VBox>
+                    <Button text="Cancel" onAction="#handleCancel" styleClass="btn-ghost" prefHeight="50" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                    <Button fx:id="confirmButton" text="COMPLETE SALE" onAction="#handleConfirmSale" 
+                            styleClass="btn-primary" prefHeight="50" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
                 </HBox>
             </VBox>
             
-            <!-- Amount Tendered -->
-            <VBox spacing="8">
-                <Label text="Amount Tendered (KSh)" style="-fx-font-size: 13; -fx-font-weight: 600; -fx-text-fill: #4a5568;" />
-                <TextField fx:id="amountTenderedField" prefWidth="250" style="-fx-font-size: 18; -fx-padding: 12; -fx-alignment: center;"
-                          promptText="Enter amount" onAction="#handleConfirmSale" onKeyReleased="#handleCalculateChange" />
-            </VBox>
-            
-            <!-- Change Display -->
-            <VBox spacing="5" alignment="CENTER">
-                <Label text="Change" style="-fx-font-size: 13; -fx-text-fill: #718096;" />
-                <Label fx:id="changeLabel" text="KSh0.00" style="-fx-font-size: 28; -fx-font-weight: bold; -fx-text-fill: #28a745;" />
-            </VBox>
-            
-            <!-- Error Message -->
-            <Label fx:id="errorLabel" text="" style="-fx-font-size: 12; -fx-text-fill: #e53e3e; -fx-min-height: 18;" />
-            
-            <!-- Action Buttons -->
-            <HBox spacing="20" alignment="CENTER">
-                <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" cancelButton="true"
-                       style="-fx-font-size: 14; -fx-padding: 12 30; -fx-background-color: #e2e8f0; -fx-text-fill: #4a5568; -fx-background-radius: 6;" />
-                <Button fx:id="confirmButton" text="Confirm Sale" onAction="#handleConfirmSale" defaultButton="true"
-                       style="-fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 12 30; -fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 6;" />
+            <HBox style="-fx-background-color: #f8fafc; -fx-padding: 15; -fx-background-radius: 0 0 20 20;" alignment="CENTER">
+                <Label text="Enter to Confirm • Esc to Cancel" style="-fx-font-size: 10; -fx-text-fill: #94a3b8;" />
             </HBox>
         </VBox>
-        
-        <!-- Footer -->
-        <StackPane style="-fx-background-color: #f7fafc; -fx-padding: 15; -fx-background-radius: 0 0 16 16;">
-            <Label text="Press Enter to confirm • Escape to cancel" style="-fx-font-size: 11; -fx-text-fill: #a0aec0;" />
-        </StackPane>
     </VBox>
 </StackPane>

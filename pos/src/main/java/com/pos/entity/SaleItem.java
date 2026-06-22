@@ -21,6 +21,7 @@ public class SaleItem {
     private BigDecimal totalPrice;
     private boolean isSynced;
     private LocalDateTime createdAt;
+    private double unitCogs;
     
     // Related entity (not stored in DB, populated on retrieval)
     private Product product;
@@ -39,6 +40,7 @@ public class SaleItem {
         this.isSynced = false;
         this.createdAt = LocalDateTime.now();
         this.boxSale = false;
+        this.unitCogs = 0.0;
     }
 
     /**
@@ -169,6 +171,26 @@ public class SaleItem {
         return boxSale;
     }
 
+    public double getUnitCogs() {
+        return unitCogs;
+    }
+
+    public void setUnitCogs(double unitCogs) {
+        this.unitCogs = unitCogs;
+    }
+
+    public int getVolumeQty() {
+        return product != null ? product.getVolumeQty() : 0;
+    }
+
+    public double getVolumePrice() {
+        return product != null ? product.getVolumePrice() : 0.0;
+    }
+
+    public double getRetailPrice() {
+        return product != null && product.getRetailPrice() != null ? product.getRetailPrice().doubleValue() : 0.0;
+    }
+
     public void setBoxSale(boolean boxSale) {
         this.boxSale = boxSale;
     }
@@ -197,10 +219,22 @@ public class SaleItem {
      * Recalculate total price based on quantity and unit price
      */
     public void recalculateTotal() {
-        if (unitPrice != null && quantity > 0) {
-            this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+        if (boxSale) {
+            if (unitPrice != null && quantity > 0) {
+                this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+            } else {
+                this.totalPrice = BigDecimal.ZERO;
+            }
         } else {
-            this.totalPrice = BigDecimal.ZERO;
+            double lineTotal = 0.0;
+            if (getVolumeQty() > 0 && quantity >= getVolumeQty()) {
+                int promoBundles = (int) quantity / getVolumeQty();
+                int remainder = (int) quantity % getVolumeQty();
+                lineTotal = (promoBundles * getVolumePrice()) + (remainder * getRetailPrice());
+            } else {
+                lineTotal = quantity * getRetailPrice();
+            }
+            this.totalPrice = BigDecimal.valueOf(lineTotal);
         }
     }
 

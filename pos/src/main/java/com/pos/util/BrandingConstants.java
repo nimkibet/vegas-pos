@@ -30,6 +30,9 @@ public class BrandingConstants {
     // Terminal Settings
     public static final String DEFAULT_TERMINAL_ID = "T01";
     
+    // Global Dark Mode Preference
+    public static boolean isDarkMode = false;
+    
     // Database folder name
     public static final String DATABASE_FOLDER = "VegasSupermarket";
     public static final String DATABASE_FILE = "vegas_pos.db";

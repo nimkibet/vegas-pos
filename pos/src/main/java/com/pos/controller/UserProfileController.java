@@ -163,9 +163,8 @@ public class UserProfileController {
             Stage newStage = new Stage();
             newStage.setTitle("POS System - Login");
             newStage.setScene(new Scene(root));
-            newStage.setWidth(420);
-            newStage.setHeight(520);
             newStage.setResizable(false);
+            newStage.sizeToScene();
             newStage.centerOnScreen();
             newStage.show();
 

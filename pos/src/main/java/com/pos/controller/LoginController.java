@@ -168,7 +168,7 @@ public class LoginController {
             primaryStage.setWidth(1280);
             primaryStage.setHeight(800);
             primaryStage.centerOnScreen();
-            
+            primaryStage.setResizable(true);
             primaryStage.show();
 
         } catch (Exception e) {

@@ -2545,10 +2545,11 @@ public class DatabaseManager {
         if (parentBarcode == null || parentBarcode.trim().isEmpty()) {
             return null;
         }
-        String sql = "SELECT * FROM products WHERE parent_wholesale_barcode = ? AND is_active = 1 AND (deduction_ratio IS NULL OR deduction_ratio >= 1.0) LIMIT 1";
+        String sql = "SELECT * FROM products WHERE (parent_wholesale_barcode = ? OR parent_barcode = ?) AND is_active = 1 LIMIT 1";
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, parentBarcode);
+            pstmt.setString(2, parentBarcode);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     return mapResultSetToProduct(rs);

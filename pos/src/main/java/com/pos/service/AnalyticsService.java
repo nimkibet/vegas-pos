@@ -40,47 +40,93 @@ public class AnalyticsService {
      * @return Map of date string to revenue amount
      */
     public List<Map<String, Object>> getLast7DaysRevenue() {
+        return getRevenueChartData(LocalDate.now().minusDays(6), LocalDate.now(), false);
+    }
+
+    /**
+     * Get revenue data for a date range, grouped by Day or Month
+     * @param startDate the start date of the range
+     * @param endDate the end date of the range
+     * @param groupByMonth true to group by month, false to group by day
+     * @return List of maps with "date" and "revenue"
+     */
+    public List<Map<String, Object>> getRevenueChartData(LocalDate startDate, LocalDate endDate, boolean groupByMonth) {
         List<Map<String, Object>> result = new ArrayList<>();
         
-        String sql = """
-            SELECT DATE(created_at) as sale_date, SUM(total) as daily_revenue 
-            FROM sales 
-            WHERE created_at >= DATE('now', '-7 days') 
-            GROUP BY DATE(created_at) 
-            ORDER BY sale_date ASC
-            """;
+        // Prepare continuous periods to avoid empty gaps in the chart
+        Map<String, Double> periodMap = new HashMap<>();
+        List<String> periods = new ArrayList<>();
+        
+        if (groupByMonth) {
+            LocalDate current = startDate.withDayOfMonth(1);
+            LocalDate limit = endDate.withDayOfMonth(1);
+            while (!current.isAfter(limit)) {
+                String period = String.format("%04d-%02d", current.getYear(), current.getMonthValue());
+                if (!periodMap.containsKey(period)) {
+                    periodMap.put(period, 0.0);
+                    periods.add(period);
+                }
+                current = current.plusMonths(1);
+            }
+        } else {
+            LocalDate current = startDate;
+            while (!current.isAfter(endDate)) {
+                String period = current.toString();
+                periodMap.put(period, 0.0);
+                periods.add(period);
+                current = current.plusDays(1);
+            }
+        }
+        
+        String sql;
+        if (groupByMonth) {
+            sql = """
+                SELECT strftime('%Y-%m', created_at) as period, SUM(CAST(total AS REAL)) as revenue 
+                FROM sales 
+                WHERE DATE(created_at) BETWEEN ? AND ? 
+                AND status = 'COMPLETED'
+                GROUP BY period
+                ORDER BY period ASC
+                """;
+        } else {
+            sql = """
+                SELECT DATE(created_at) as period, SUM(CAST(total AS REAL)) as revenue 
+                FROM sales 
+                WHERE DATE(created_at) BETWEEN ? AND ? 
+                AND status = 'COMPLETED'
+                GROUP BY DATE(created_at)
+                ORDER BY period ASC
+                """;
+        }
         
         try (Connection conn = dbManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             
-            Map<String, Double> revenueMap = new HashMap<>();
+            stmt.setString(1, startDate.toString());
+            stmt.setString(2, endDate.toString());
             
-            // Initialize all 7 days with 0
-            for (int i = 6; i >= 0; i--) {
-                String date = LocalDate.now().minusDays(i).toString();
-                revenueMap.put(date, 0.0);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String period = rs.getString("period");
+                    double revenue = rs.getDouble("revenue");
+                    if (periodMap.containsKey(period)) {
+                        periodMap.put(period, revenue);
+                    } else {
+                        periodMap.put(period, revenue);
+                        periods.add(period);
+                    }
+                }
             }
-            
-            // Fill in actual data
-            while (rs.next()) {
-                String date = rs.getString("sale_date");
-                double revenue = rs.getDouble("daily_revenue");
-                revenueMap.put(date, revenue);
-            }
-            
-            // Convert to list
-            for (Map.Entry<String, Double> entry : revenueMap.entrySet()) {
-                Map<String, Object> dayData = new HashMap<>();
-                dayData.put("date", entry.getKey());
-                dayData.put("revenue", entry.getValue());
-                result.add(dayData);
-            }
-            
-            logger.info("Retrieved 7-day revenue data: {} days", result.size());
-            
         } catch (SQLException e) {
-            logger.error("Error fetching 7-day revenue data", e);
+            logger.error("Error fetching revenue chart data", e);
+        }
+        
+        // Convert map to list in chronological order
+        for (String period : periods) {
+            Map<String, Object> periodData = new HashMap<>();
+            periodData.put("date", period);
+            periodData.put("revenue", periodMap.get(period));
+            result.add(periodData);
         }
         
         return result;
@@ -126,19 +172,32 @@ public class AnalyticsService {
      * Get total revenue for today
      */
     public double getTodayRevenue() {
-        String sql = "SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = DATE('now')";
+        return getRevenue(LocalDate.now(), LocalDate.now());
+    }
+
+    /**
+     * Get total revenue for a given date range
+     */
+    public double getRevenue(LocalDate startDate, LocalDate endDate) {
+        String sql = """
+            SELECT COALESCE(SUM(CAST(total AS REAL)), 0) as total 
+            FROM sales 
+            WHERE DATE(created_at) BETWEEN ? AND ?
+            AND status = 'COMPLETED'
+            """;
         
         try (Connection conn = dbManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            
-            if (rs.next()) {
-                return rs.getDouble("total");
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, startDate.toString());
+            stmt.setString(2, endDate.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("total");
+                }
             }
         } catch (SQLException e) {
-            logger.error("Error fetching today's revenue", e);
+            logger.error("Error fetching revenue for date range", e);
         }
-        
         return 0.0;
     }
     
@@ -146,19 +205,32 @@ public class AnalyticsService {
      * Get total number of transactions today
      */
     public int getTodayTransactionCount() {
-        String sql = "SELECT COUNT(*) as count FROM sales WHERE DATE(created_at) = DATE('now')";
+        return getTransactionCount(LocalDate.now(), LocalDate.now());
+    }
+
+    /**
+     * Get total number of transactions for a given date range
+     */
+    public int getTransactionCount(LocalDate startDate, LocalDate endDate) {
+        String sql = """
+            SELECT COUNT(*) as count 
+            FROM sales 
+            WHERE DATE(created_at) BETWEEN ? AND ?
+            AND status = 'COMPLETED'
+            """;
         
         try (Connection conn = dbManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            
-            if (rs.next()) {
-                return rs.getInt("count");
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, startDate.toString());
+            stmt.setString(2, endDate.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("count");
+                }
             }
         } catch (SQLException e) {
-            logger.error("Error fetching today's transaction count", e);
+            logger.error("Error fetching transaction count for date range", e);
         }
-        
         return 0;
     }
 
@@ -167,9 +239,8 @@ public class AnalyticsService {
      */
     public double calculateNetProfit(LocalDate startDate, LocalDate endDate) {
         String sql = """
-            SELECT SUM(si.quantity * (CAST(si.unit_price AS REAL) - CAST(p.wholesale_price AS REAL))) as net_profit
+            SELECT SUM((CAST(si.unit_price AS REAL) - COALESCE(si.unit_cogs, 0.0)) * si.quantity) as net_profit
             FROM sale_items si
-            JOIN products p ON si.product_id = p.id
             JOIN sales s ON si.sale_id = s.id
             WHERE DATE(s.created_at) BETWEEN ? AND ?
             AND s.status = 'COMPLETED'

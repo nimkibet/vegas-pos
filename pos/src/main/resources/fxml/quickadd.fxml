@@ -4,31 +4,37 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pos.controller.QuickAddController">
+<StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pos.controller.QuickAddController" prefWidth="440" minWidth="320">
     
     <!-- Quick Add Card -->
     <VBox style="-fx-background-color: white; -fx-background-radius: 12;" 
-          alignment="CENTER" spacing="0" maxWidth="500" prefWidth="500">
+          alignment="CENTER" spacing="0" prefWidth="440" minWidth="320">
         
         <!-- Header -->
-        <StackPane style="-fx-background-color: #1a5f2a; -fx-padding: 20 30; -fx-background-radius: 12 12 0 0;">
-            <Label text="Quick Add Product" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: white;">
+        <StackPane style="-fx-background-color: #1a5f2a; -fx-padding: 15 25; -fx-background-radius: 12 12 0 0;">
+            <Label text="Quick Add Product" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: white;">
                 <font>
-                    <Font name="Segoe UI Bold" size="20" />
+                    <Font name="Segoe UI Bold" size="18" />
                 </font>
             </Label>
         </StackPane>
         
         <!-- Form Body -->
-        <VBox style="-fx-padding: 30; -fx-spacing: 20;" alignment="CENTER">
+        <VBox style="-fx-padding: 20; -fx-spacing: 15;" alignment="CENTER">
             
-            <GridPane hgap="15.0" vgap="15.0">
+            <GridPane hgap="12.0" vgap="12.0">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="130" prefWidth="140" hgrow="NEVER" />
+                    <ColumnConstraints minWidth="200" prefWidth="240" hgrow="ALWAYS" />
+                </columnConstraints>
                 <!-- Barcode -->
                 <Label text="Barcode:*" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="0" />
                 <TextField fx:id="barcodeField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="0" />
@@ -51,19 +57,16 @@
                 
                 <!-- Category -->
                 <Label text="Category:" style="-fx-font-size: 14; -fx-font-weight: 600; -fx-text-fill: #4a5568;" GridPane.columnIndex="0" GridPane.rowIndex="5" />
-                <TextField fx:id="categoryField" prefWidth="250.0" style="-fx-font-size: 14; -fx-padding: 10; -fx-background-radius: 6;" GridPane.columnIndex="1" GridPane.rowIndex="5" promptText="General" />
+                <ComboBox fx:id="categoryComboBox" prefWidth="Infinity" prefHeight="35" promptText="Select a category..." GridPane.columnIndex="1" GridPane.rowIndex="5" />
                 
                 <!-- Error Label -->
                 <Label fx:id="errorLabel" text="" style="-fx-font-size: 13; -fx-text-fill: #e53e3e; -fx-min-height: 20;" GridPane.columnIndex="0" GridPane.columnSpan="2" 
                        GridPane.rowIndex="6" GridPane.halignment="CENTER" />
             </GridPane>
             
-            <!-- Buttons -->
-            <HBox spacing="20" alignment="CENTER_RIGHT">
-                <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" 
-                       style="-fx-font-size: 14; -fx-padding: 12 30; -fx-background-color: #e2e8f0; -fx-text-fill: #4a5568; -fx-background-radius: 8;" />
-                <Button fx:id="saveButton" text="Save Product" onAction="#handleSave" 
-                       style="-fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 12 30; -fx-background-color: #28a745; -fx-text-fill: white; -fx-background-radius: 8;" />
+            <HBox spacing="15" alignment="CENTER_RIGHT" prefHeight="60" style="-fx-padding: 15 0 0 0;">
+                <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel" style="-fx-background-color: #ef4444; -fx-text-fill: white; -fx-background-radius: 8; -fx-padding: 8 20; -fx-font-weight: bold; -fx-cursor: hand;" />
+                <Button fx:id="saveButton" text="Save Product" onAction="#handleSave" style="-fx-background-color: #10b981; -fx-text-fill: white; -fx-background-radius: 8; -fx-padding: 8 20; -fx-font-weight: bold; -fx-cursor: hand;" />
             </HBox>
         </VBox>
     </VBox>

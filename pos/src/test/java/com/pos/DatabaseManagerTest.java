@@ -23,10 +23,29 @@ public class DatabaseManagerTest {
     
     @BeforeAll
     public static void setup() throws Exception {
+        DatabaseManager.resetInstanceForTest("test_pos_system.db");
         dbManager = DatabaseManager.getInstance();
         dbManager.initialize();
         // Generate unique barcode for each test run to avoid conflicts
         uniqueTestBarcode = "TEST" + UUID.randomUUID().toString().replace("-", "").substring(0, 13);
+    }
+
+    @AfterAll
+    public static void tearDown() throws Exception {
+        dbManager.close();
+        // Force garbage collection to ensure SQLite driver releases file locks before deletion
+        System.gc();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {}
+        
+        String userHome = System.getProperty("user.home");
+        String testDbPath = userHome + java.io.File.separator + "AppData" + java.io.File.separator + 
+                            "VegasSupermarket" + java.io.File.separator + "test_pos_system.db";
+        java.io.File file = new java.io.File(testDbPath);
+        if (file.exists()) {
+            file.delete();
+        }
     }
     
     @Test
@@ -100,10 +119,26 @@ public class DatabaseManagerTest {
         assertTrue(userOpt.isPresent());
         User user = userOpt.get();
         
-        // Get a product
-        List<Product> products = dbManager.getAllProducts();
-        assertTrue(!products.isEmpty(), "Should have products for sale test");
-        Product product = products.get(0);
+        // Create a test product for sale
+        Product product = new Product(
+            "TEST-SALE-" + UUID.randomUUID().toString(),
+            "SALEBAR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10),
+            "Test Sale Product",
+            "A test product for sale unit testing",
+            "Test Category",
+            new BigDecimal("100.00"),
+            new BigDecimal("80.00"),
+            50,
+            10,
+            null,
+            "Test Supplier",
+            "APPROVED",
+            true,
+            false,
+            LocalDateTime.now(),
+            LocalDateTime.now()
+        );
+        dbManager.insertProduct(product);
         
         // Create a sale
         Sale sale = new Sale(user.getId());
@@ -222,5 +257,53 @@ public class DatabaseManagerTest {
         Optional<SupplierTransaction> creditRow = txs2.stream().filter(t -> t.getId().equals(credit.getId())).findFirst();
         assertTrue(creditRow.isPresent());
         assertEquals(SupplierTransaction.STATUS_PAID, creditRow.get().getStatus());
+    }
+
+    @Test
+    public void testFindBaseRetailItem() throws Exception {
+        // Create a 3-tier hierarchy: Box -> Packet -> Piece
+        String boxBar = "BOX" + UUID.randomUUID().toString().substring(0, 8);
+        String packBar = "PACK" + UUID.randomUUID().toString().substring(0, 8);
+        String pieceBar = "PIECE" + UUID.randomUUID().toString().substring(0, 8);
+
+        Product box = new Product();
+        box.setBarcode(boxBar);
+        box.setName("Box Name");
+        box.setRetailPrice(new BigDecimal("1000.00"));
+        box.setWholesalePrice(new BigDecimal("800.00"));
+        dbManager.insertProduct(box);
+
+        Product pack = new Product();
+        pack.setBarcode(packBar);
+        pack.setName("Packet Name");
+        pack.setRetailPrice(new BigDecimal("100.00"));
+        pack.setWholesalePrice(new BigDecimal("80.00"));
+        pack.setParentWholesaleBarcode(boxBar);
+        pack.setConversionYield(10);
+        dbManager.insertProduct(pack);
+
+        Product piece = new Product();
+        piece.setBarcode(pieceBar);
+        piece.setName("Piece Name");
+        piece.setRetailPrice(new BigDecimal("10.00"));
+        piece.setWholesalePrice(new BigDecimal("8.00"));
+        piece.setParentWholesaleBarcode(packBar);
+        piece.setConversionYield(10);
+        dbManager.insertProduct(piece);
+
+        // Trace down from Box
+        Product baseFromBox = dbManager.findBaseRetailItem(boxBar);
+        assertNotNull(baseFromBox);
+        assertEquals(pieceBar, baseFromBox.getBarcode());
+
+        // Trace down from Packet
+        Product baseFromPack = dbManager.findBaseRetailItem(packBar);
+        assertNotNull(baseFromPack);
+        assertEquals(pieceBar, baseFromPack.getBarcode());
+
+        // Trace down from Piece itself
+        Product baseFromPiece = dbManager.findBaseRetailItem(pieceBar);
+        assertNotNull(baseFromPiece);
+        assertEquals(pieceBar, baseFromPiece.getBarcode());
     }
 }

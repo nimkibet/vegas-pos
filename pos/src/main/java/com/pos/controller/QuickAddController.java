@@ -39,7 +39,7 @@ public class QuickAddController {
     @FXML
     private TextField stockField;
     @FXML
-    private TextField categoryField;
+    private ComboBox<String> categoryComboBox;
     @FXML
     private Button saveButton;
     @FXML
@@ -58,6 +58,14 @@ public class QuickAddController {
     @FXML
     public void initialize() {
         errorLabel.setText("");
+        
+        try {
+            java.util.List<String> categories = dbManager.getAllCategories();
+            categoryComboBox.getItems().setAll(categories);
+            categoryComboBox.getSelectionModel().select("General");
+        } catch (Exception e) {
+            logger.error("Error loading categories", e);
+        }
         
         // Pre-fill barcode if provided
         if (scannedBarcode != null && !scannedBarcode.isEmpty()) {
@@ -88,7 +96,7 @@ public class QuickAddController {
             String retailPriceStr = retailPriceField.getText();
             String wholesalePriceStr = wholesalePriceField.getText();
             String stockStr = stockField.getText();
-            String categoryText = categoryField.getText();
+            String categoryText = categoryComboBox.getValue();
             
             String barcode = (barcodeText != null) ? barcodeText.trim() : "";
             String name = (nameText != null) ? nameText.trim() : "";
@@ -144,6 +152,9 @@ public class QuickAddController {
             
             // Save to database
             dbManager.insertProduct(product);
+            
+            // Sync to cloud
+            com.pos.service.SyncService.getInstance().syncProductToCloud(product);
             
             this.addedProduct = product;
             logger.info("New product added: {}", name);

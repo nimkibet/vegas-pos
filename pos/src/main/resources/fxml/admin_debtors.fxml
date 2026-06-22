@@ -1,39 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Region?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Font?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<VBox spacing="20.0" styleClass="main-container" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.pos.controller.AdminDebtorsController">
-    <padding>
-        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
-    </padding>
-    <children>
-        <HBox alignment="CENTER_LEFT" spacing="20.0">
-            <children>
-                <Label text="Accounts Receivable (Debtors)">
-                    <font>
-                        <Font name="System Bold" size="24.0" />
-                    </font>
-                </Label>
-                <Region HBox.hgrow="ALWAYS" />
-                <Button mnemonicParsing="false" onAction="#handleRefresh" prefHeight="40.0" prefWidth="120.0" styleClass="btn-info" text="🔄 Refresh" />
-            </children>
-        </HBox>
-        
-        <TableView fx:id="debtorsTable" VBox.vgrow="ALWAYS">
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+      fx:controller="com.pos.controller.AdminDebtorsController"
+      stylesheets="@../css/style.css" spacing="20" style="-fx-padding: 0;">
+
+    <HBox alignment="CENTER_LEFT" spacing="20">
+        <VBox>
+            <Label text="Accounts Receivable" style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+            <Label text="Monitor outstanding customer debts and credit limits" style="-fx-text-fill: #64748b;" />
+        </VBox>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button onAction="#handleRefresh" styleClass="btn-ghost" text="↻ Refresh Data" prefHeight="40" />
+    </HBox>
+    
+    <VBox styleClass="card" VBox.vgrow="ALWAYS" style="-fx-padding: 0;">
+        <TableView fx:id="debtorsTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+            <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
             <columns>
-                <TableColumn fx:id="colCustomerName" prefWidth="250.0" text="Customer Name" />
-                <TableColumn fx:id="colPhone" prefWidth="150.0" text="Phone Number" />
-                <TableColumn fx:id="colPendingBatches" prefWidth="150.0" text="Unpaid Batches" />
-                <TableColumn fx:id="colTotalDebt" prefWidth="200.0" text="Total Outstanding Debt" />
+                <TableColumn fx:id="colCustomerName" text="Customer Name" prefWidth="200" />
+                <TableColumn fx:id="colPhone" text="Phone Number" prefWidth="130" />
+                <TableColumn fx:id="colPendingBatches" text="Unpaid Batches" prefWidth="110" />
+                <TableColumn fx:id="colTotalDebt" text="Outstanding (KSh)" prefWidth="150" style="-fx-font-weight: bold;" />
+                <TableColumn fx:id="colCreditLimit" text="Credit Limit (KSh)" prefWidth="150" />
+                <TableColumn fx:id="colLimitStatus" text="Status" prefWidth="100" />
             </columns>
         </TableView>
-    </children>
-</VBox>
+    </VBox>
+    
+    <HBox spacing="15" alignment="CENTER_LEFT">
+        <Button text="View Customer Ledger" styleClass="btn-primary" prefHeight="40" onAction="#handleViewLedger" />
+        <Button text="Record Payment" styleClass="btn-success" prefHeight="40" onAction="#handleRecordPayment" />
+        <Button text="✏ Edit Credit Limit" styleClass="btn-warning" prefHeight="40" onAction="#handleEditCreditLimit"
+                style="-fx-background-color: #f59e0b; -fx-text-fill: white;" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Label text="Total Debt Portfolio:" style="-fx-text-fill: #64748b;" />
+        <Label fx:id="totalPortfolioLabel" text="KSh 0.00" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+    </HBox>
+
+</VBox>

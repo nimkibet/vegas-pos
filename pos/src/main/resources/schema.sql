@@ -40,7 +40,12 @@ CREATE TABLE IF NOT EXISTS products (
     is_active INTEGER NOT NULL DEFAULT 1,
     is_synced INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    parent_wholesale_barcode TEXT DEFAULT NULL,
+    conversion_yield INTEGER DEFAULT 0,
+    loose_remainder_stock INTEGER DEFAULT 0,
+    volume_qty INTEGER DEFAULT 0,
+    volume_price REAL DEFAULT 0.0
 );
 
 -- Indexes for product lookups
@@ -93,6 +98,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
     total_price TEXT NOT NULL,
     is_synced INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    unit_cogs REAL DEFAULT 0.0,
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
@@ -161,20 +167,9 @@ VALUES
     ('550e8400-e29b-41d4-a716-446655440001', 'attendant', '$2a$10$9Cf2WA9GRbXqhCxQ8tMfAu2sUYPcs4OYxpjcXVr3b.l4k3JL3TwU2', 'Default Attendant', 'ATTENDANT', 1, 0);
 
 -- =====================================================
--- PRODUCT SEEDER - 10 Sample Products
+-- PRODUCT SEEDER - Ready for Real Products
 -- =====================================================
-INSERT OR IGNORE INTO products (id, barcode, name, description, category, retail_price, wholesale_price, stock_quantity, min_stock_level, is_active, is_synced)
-VALUES 
-    ('550e8400-e29b-41d4-a716-446655440100', '500000001', 'Bread (White Loaf)', 'Fresh white bread', 'Bakery', '50.00', '40.00', 50, 10, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440101', '500000002', 'Bread (Brown Loaf)', 'Fresh brown bread', 'Bakery', '55.00', '45.00', 40, 10, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440102', '500000003', 'Milk (1 Liter)', 'Fresh whole milk', 'Dairy', '120.00', '100.00', 100, 20, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440103', '500000004', 'Milk (500ml)', 'Half liter milk', 'Dairy', '70.00', '55.00', 80, 15, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440104', '500000005', 'Eggs (Tray)', '30 eggs tray', 'Dairy', '450.00', '400.00', 30, 10, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440105', '500000006', 'Sugar (1kg)', 'White sugar', 'Groceries', '150.00', '130.00', 60, 15, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440106', '500000007', 'Rice (1kg)', 'Basmati rice', 'Groceries', '180.00', '160.00', 45, 10, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440107', '500000008', 'Rice (2kg)', 'Basmati rice 2kg', 'Groceries', '350.00', '320.00', 25, 8, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440108', '500000009', 'Cooking Oil (1L)', 'Vegetable cooking oil', 'Groceries', '200.00', '180.00', 50, 12, 1, 0),
-    ('550e8400-e29b-41d4-a716-446655440109', '500000010', 'Cooking Oil (500ml)', 'Vegetable cooking oil', 'Groceries', '110.00', '95.00', 40, 10, 1, 0);
+-- Dummy products seeding has been removed to allow a clean environment for real products.
 
 -- =====================================================
 -- DEFAULT SETTINGS
@@ -188,3 +183,14 @@ VALUES
     ('receipt_footer', 'Thank you for your business!', 'Footer message on receipts'),
     ('printer_name', 'default', 'Default ESC/POS printer name'),
     ('api_base_url', 'https://api.example.com', 'Base URL for sync API');
+
+-- =====================================================
+-- SYSTEM LOGS / ALERTS TABLE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS system_logs (
+    id TEXT PRIMARY KEY,
+    barcode TEXT,
+    type TEXT,
+    message TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

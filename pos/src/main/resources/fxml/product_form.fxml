@@ -4,113 +4,254 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.pos.controller.ProductFormController"
-            stylesheets="@../css/style.css">
-    <padding>
-        <Insets top="24" right="28" bottom="24" left="28"/>
-    </padding>
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.pos.controller.ProductFormController"
+      stylesheets="@../css/style.css" spacing="20" style="-fx-padding: 20;" prefWidth="950">
 
-    <top>
-        <Label text="Product Management" style="-fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #1a5f2a;"/>
-    </top>
+    <VBox spacing="5">
+        <Label text="Single-Screen Packaging Wizard" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #0f172a;"/>
+        <Label text="Define your packaging hierarchy (Box -> Packet -> Piece) in one screen. The system will auto-generate all variants." style="-fx-font-size: 12; -fx-text-fill: #64748b;"/>
+    </VBox>
 
-    <center>
-        <HBox spacing="40" alignment="TOP_LEFT" BorderPane.alignment="CENTER" maxWidth="Infinity">
-            <VBox spacing="14" HBox.hgrow="ALWAYS" maxWidth="Infinity" style="-fx-min-width: 280;">
-                <Label text="Basic Details" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
-                <VBox spacing="6">
-                    <Label text="Barcode" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <TextField fx:id="barcodeField" promptText="Scan or enter barcode" HBox.hgrow="ALWAYS"
-                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
-                        <Button text="Generate" onAction="#handleGenerateBarcode" styleClass="button"/>
+    <HBox spacing="30" VBox.vgrow="ALWAYS">
+        <!-- Left Column: Core Product & Tier 1 (Retail Piece) -->
+        <VBox spacing="15" HBox.hgrow="ALWAYS" prefWidth="450">
+            <VBox spacing="15" styleClass="card">
+                <Label text="CORE PRODUCT INFORMATION" style="-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #0f172a;"/>
+                
+                <GridPane hgap="10" vgap="10">
+                    <columnConstraints>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="150" prefWidth="1000" />
+                    </columnConstraints>
+                    
+                    <VBox spacing="8" GridPane.rowIndex="0">
+                        <Label text="Product Name" styleClass="form-label, adaptive-text"/>
+                        <TextField fx:id="nameField" promptText="e.g., Tropical Sweet" prefHeight="40" maxWidth="Infinity" />
+                    </VBox>
+                    
+                    <HBox spacing="10" GridPane.rowIndex="1">
+                        <VBox spacing="8" HBox.hgrow="ALWAYS">
+                            <Label text="Category" styleClass="form-label, adaptive-text"/>
+                            <ComboBox fx:id="categoryCombo" editable="true" promptText="Select Category" maxWidth="Infinity" prefHeight="40"/>
+                        </VBox>
+                        <VBox spacing="8" prefWidth="120">
+                            <Label text="Unit Type" styleClass="form-label, adaptive-text"/>
+                            <ComboBox fx:id="unitTypeComboBox" promptText="Unit" maxWidth="Infinity" prefHeight="40"/>
+                        </VBox>
                     </HBox>
-                </VBox>
-                <VBox spacing="6">
-                    <Label text="Name" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <TextField fx:id="nameField" promptText="Product name"
-                               style="-fx-font-size: 13; -fx-padding: 10;"/>
-                </VBox>
-                <VBox spacing="6">
-                    <Label text="Category" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <HBox spacing="10">
-                        <ComboBox fx:id="categoryCombo" editable="true" promptText="Select or type category"
-                                  style="-fx-font-size: 13;" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
-                        <ComboBox fx:id="unitTypeComboBox" promptText="Unit" prefWidth="100"
-                                  style="-fx-font-size: 13;"/>
-                    </HBox>
-                </VBox>
+                </GridPane>
             </VBox>
 
-            <VBox spacing="14" HBox.hgrow="ALWAYS" maxWidth="Infinity" style="-fx-min-width: 280;">
-                <Label text="Pricing &amp; Stock" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
-                <VBox spacing="6">
-                    <Label text="Retail Price" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <TextField fx:id="retailPriceField" promptText="0.00"
-                               style="-fx-font-size: 13; -fx-padding: 10;"/>
-                </VBox>
-                <VBox spacing="6">
-                    <Label text="Wholesale Price" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <TextField fx:id="wholesalePriceField" promptText="0.00"
-                               style="-fx-font-size: 13; -fx-padding: 10;"/>
-                </VBox>
-
-                <Separator style="-fx-padding: 8 0;"/>
-
-                <Label text="Bulk / Box" style="-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
-                <CheckBox fx:id="hasBulkCheckbox" text="Has Bulk/Box Option?" style="-fx-text-fill: #333333; -fx-opacity: 1; -fx-font-size: 13;"/>
-
-                <VBox fx:id="bulkFieldsContainer" spacing="12" visible="false" managed="false">
-                    <VBox spacing="6">
-                        <Label text="Box Barcode" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                        <TextField fx:id="bulkBarcodeField" promptText="Case / outer barcode"
-                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
-                    </VBox>
-                    <VBox spacing="6">
-                        <Label text="Box Price" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                        <TextField fx:id="bulkPriceField" promptText="0.00"
-                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
-                    </VBox>
-                    <VBox spacing="6">
-                        <Label text="Base Units per Bulk (e.g., 50 for a 50kg bag, 12 for a dozen)" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                        <TextField fx:id="piecesPerBoxField" promptText="e.g. 12"
-                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
-                    </VBox>
-                    <VBox spacing="6">
-                        <Label text="Bulk Items Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                        <TextField fx:id="boxesReceivedField" promptText="0"
-                                   style="-fx-font-size: 13; -fx-padding: 10;"/>
-                    </VBox>
-                    <Label text="Units per bulk, bulk barcode, and shelf price for one bulk item." 
-                           style="-fx-font-size: 11; -fx-text-fill: #718096; -fx-font-style: italic;"/>
-                </VBox>
-
-                <HBox fx:id="looseStockContainer" spacing="12" alignment="CENTER_LEFT">
-                    <Label text="Loose Units Received" style="-fx-font-size: 12; -fx-text-fill: #4a5568;"/>
-                    <TextField fx:id="loosePiecesField" promptText="0" prefWidth="120"
-                               style="-fx-font-size: 13; -fx-padding: 10;"/>
+            <VBox spacing="15" styleClass="card" style="-fx-border-color: #3b82f6; -fx-border-width: 1.5; -fx-border-radius: 8;">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="TIER 1: LOWEST RETAIL UNIT (e.g., Single or Bundle)" style="-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #3b82f6;"/>
+                    <Label text="[Required]" style="-fx-font-size: 11; -fx-text-fill: #ef4444;" />
                 </HBox>
 
-                <Separator style="-fx-padding: 8 0;"/>
-                <VBox spacing="8">
-                    <Label text="Variant Generation" style="-fx-font-size: 13; -fx-font-weight: bold; -fx-text-fill: #2d3748;"/>
-                    <HBox spacing="15">
-                        <CheckBox fx:id="generateHalfCheck" text="Auto-Generate Half (0.5)" style="-fx-text-fill: #333333; -fx-opacity: 1; -fx-font-size: 12;"/>
-                        <CheckBox fx:id="generateQuarterCheck" text="Auto-Generate Quarter (0.25)" style="-fx-text-fill: #333333; -fx-opacity: 1; -fx-font-size: 12;"/>
+                <GridPane hgap="10" vgap="15">
+                    <columnConstraints>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="150" prefWidth="1000" />
+                    </columnConstraints>
+
+                    <VBox spacing="8" GridPane.rowIndex="0">
+                        <Label text="Retail Barcode" styleClass="form-label, adaptive-text"/>
+                        <HBox spacing="10">
+                            <TextField fx:id="barcodeField" promptText="Scan or enter retail barcode" HBox.hgrow="ALWAYS" prefHeight="40" maxWidth="Infinity" />
+                            <Button text="Generate" onAction="#handleGenerateBarcode" styleClass="btn-ghost" prefHeight="40"/>
+                        </HBox>
+                    </VBox>
+
+                    <HBox spacing="15" alignment="CENTER_LEFT" GridPane.rowIndex="1">
+                        <RadioButton fx:id="radioSingle" text="Sold as Single Item" selected="true" styleClass="radio-button">
+                            <toggleGroup>
+                                <ToggleGroup fx:id="retailTypeGroup"/>
+                            </toggleGroup>
+                        </RadioButton>
+                        <RadioButton fx:id="radioBundle" text="Sold as Bundle/Multi-Pack" toggleGroup="$retailTypeGroup" styleClass="radio-button"/>
                     </HBox>
+
+                    <VBox fx:id="bundleMathContainer" visible="false" managed="false" spacing="8" GridPane.rowIndex="2" style="-fx-background-color: rgba(59, 130, 246, 0.05); -fx-border-color: rgba(59, 130, 246, 0.3); -fx-border-width: 1; -fx-border-style: dashed; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 12;">
+                        <Label text="BACKGROUND CALCULATION MATH" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #3b82f6; -fx-letter-spacing: 0.5;"/>
+                        <Label text="Items per Retail Unit (e.g., 4 for bundle, 1 for single):" styleClass="form-label, adaptive-text"/>
+                        <TextField fx:id="bundleSizeInput" promptText="Default: 1" text="1" prefHeight="40" maxWidth="Infinity" />
+                    </VBox>
+
+                    <HBox spacing="10" GridPane.rowIndex="3">
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Retail Selling Price (KSh)" style="-fx-font-weight: bold; -fx-padding: 0 0 5 0;" styleClass="form-label, adaptive-text"/>
+                            <TextField fx:id="retailPriceField" promptText="e.g., 10.00" prefHeight="40" maxWidth="Infinity" style="-fx-font-weight: bold;"/>
+                        </VBox>
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Wholesale Price (KSh)" style="-fx-font-weight: bold; -fx-padding: 0 0 5 0;" styleClass="form-label, adaptive-text"/>
+                            <TextField fx:id="tier1WholesalePriceField" promptText="e.g., 8.00" prefHeight="40" maxWidth="Infinity" style="-fx-font-weight: bold;"/>
+                        </VBox>
+                        <VBox spacing="8" HBox.hgrow="ALWAYS">
+                            <Label text="Initial Stock (Pieces)" styleClass="form-label, adaptive-text"/>
+                            <TextField fx:id="loosePiecesField" promptText="0" prefHeight="40" maxWidth="Infinity" />
+                        </VBox>
+                    </HBox>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="4">
+                        <Label text="Auto-generate pricing for small portions:" style="-fx-text-fill: #64748b;"/>
+                        <CheckBox fx:id="chkHalf" text="Half (0.5)"/>
+                        <CheckBox fx:id="chkQuarter" text="Quarter (0.25)"/>
+                    </HBox>
+
+                    <HBox spacing="15" alignment="CENTER_LEFT" GridPane.rowIndex="5">
+                        <RadioButton fx:id="radioStandardSingle" text="Standard Retail Pricing" selected="true">
+                            <toggleGroup>
+                                <ToggleGroup fx:id="pricingTypeGroup"/>
+                            </toggleGroup>
+                        </RadioButton>
+                        <RadioButton fx:id="radioVolumePromo" text="Has Volume Discount (e.g., 3 for 10)" toggleGroup="$pricingTypeGroup"/>
+                    </HBox>
+
+                    <VBox fx:id="volumePricingContainer" spacing="10" managed="false" visible="false" GridPane.rowIndex="6" style="-fx-background-color: rgba(59, 130, 246, 0.05); -fx-border-color: rgba(59, 130, 246, 0.3); -fx-border-width: 1; -fx-border-style: dashed; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 12;">
+                        <HBox spacing="10">
+                            <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                <Label text="Volume Quantity" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="volumeQtyInput" promptText="e.g., 3" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                            <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                <Label text="Volume Promo Price (KSh)" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="volumePriceInput" promptText="e.g., 10.00" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                        </HBox>
+                    </VBox>
+                </GridPane>
+            </VBox>
+        </VBox>
+
+        <Separator orientation="VERTICAL" />
+
+        <!-- Right Column: Tier 2 (Packet) & Tier 3 (Box) -->
+        <VBox spacing="15" HBox.hgrow="ALWAYS" prefWidth="450">
+            <!-- Tier 2 (Packet) -->
+            <VBox spacing="15" styleClass="card">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <CheckBox fx:id="packetEnabledCheck" text="Enable Tier 2: Packet / Mid-Level" wrapText="true" style="-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: #0f172a;"/>
+                </HBox>
+                <VBox fx:id="packetFieldsContainer" spacing="15" managed="false" visible="false">
+                    <GridPane hgap="10" vgap="15">
+                        <columnConstraints>
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="150" prefWidth="1000" />
+                        </columnConstraints>
+
+                        <VBox spacing="8" GridPane.rowIndex="0">
+                            <Label text="Packet Barcode" styleClass="form-label, adaptive-text"/>
+                            <HBox spacing="10">
+                                <TextField fx:id="packetBarcodeField" promptText="Scan or enter packet barcode" HBox.hgrow="ALWAYS" prefHeight="40" maxWidth="Infinity" />
+                                <Button text="Generate" onAction="#generateTier2Barcode" styleClass="btn-secondary" prefHeight="40"/>
+                            </HBox>
+                        </VBox>
+
+                        <HBox spacing="10" GridPane.rowIndex="1">
+                            <VBox spacing="8" HBox.hgrow="ALWAYS" style="-fx-background-color: rgba(16, 185, 129, 0.05); -fx-border-color: rgba(16, 185, 129, 0.3); -fx-border-width: 1; -fx-border-style: dashed; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 12;">
+                                <Label text="BACKGROUND CALCULATION MATH" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #10b981; -fx-letter-spacing: 0.5;"/>
+                                <Label text="Total Pieces in ONE Packet:" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="piecesPerPacketField" promptText="e.g., 80" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                            <VBox spacing="8" HBox.hgrow="ALWAYS" style="-fx-padding: 12;">
+                                <Region prefHeight="15"/>
+                                <Label text="Packet Selling Price (KSh)" style="-fx-font-weight: bold;" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="packetPriceField" promptText="e.g., 750.00" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                        </HBox>
+
+                        <VBox spacing="8" GridPane.rowIndex="2">
+                            <Label text="Initial Packet Stock" styleClass="form-label, adaptive-text"/>
+                            <TextField fx:id="packetStockField" promptText="0" prefHeight="40" maxWidth="Infinity" />
+                        </VBox>
+                    </GridPane>
                 </VBox>
             </VBox>
-        </HBox>
-    </center>
 
-    <bottom>
-        <VBox spacing="12" BorderPane.alignment="CENTER">
-            <Label fx:id="errorLabel" style="-fx-font-size: 12; -fx-text-fill: #e53e3e;"/>
-            <HBox alignment="CENTER_RIGHT" spacing="12">
-                <Button text="Clear" onAction="#handleClear" styleClass="button"/>
-                <Button text="Save Product" onAction="#handleSave" styleClass="btn-primary"/>
-            </HBox>
+            <!-- Tier 3 (Master Box) -->
+            <VBox spacing="15" styleClass="card">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <CheckBox fx:id="boxEnabledCheck" text="Enable Tier 3: Master Box / Top-Level" wrapText="true" style="-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: #0f172a;"/>
+                </HBox>
+                <VBox fx:id="boxFieldsContainer" spacing="15" managed="false" visible="false">
+                    <GridPane hgap="10" vgap="15">
+                        <columnConstraints>
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="150" prefWidth="1000" />
+                        </columnConstraints>
+
+                        <VBox spacing="8" GridPane.rowIndex="0">
+                            <Label text="Box Barcode" styleClass="form-label, adaptive-text"/>
+                            <HBox spacing="10">
+                                <TextField fx:id="boxBarcodeField" promptText="Scan or enter box barcode" HBox.hgrow="ALWAYS" prefHeight="40" maxWidth="Infinity" />
+                                <Button text="Generate" onAction="#generateTier3Barcode" styleClass="btn-secondary" prefHeight="40"/>
+                            </HBox>
+                        </VBox>
+
+                        <HBox spacing="10" GridPane.rowIndex="1">
+                            <VBox spacing="8" HBox.hgrow="ALWAYS" style="-fx-background-color: rgba(16, 185, 129, 0.05); -fx-border-color: rgba(16, 185, 129, 0.3); -fx-border-width: 1; -fx-border-style: dashed; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 12;">
+                                <Label text="BACKGROUND CALCULATION MATH" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #10b981; -fx-letter-spacing: 0.5;"/>
+                                <Label text="Packets in ONE Box:" styleClass="form-label, adaptive-text" fx:id="packetsPerBoxLabel"/>
+                                <TextField fx:id="packetsPerBoxField" promptText="e.g., 10" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                            <VBox spacing="8" HBox.hgrow="ALWAYS" style="-fx-padding: 12;">
+                                <Region prefHeight="15"/>
+                                <Label text="Box Wholesale Price (KSh)" style="-fx-font-weight: bold;" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="wholesalePriceField" promptText="e.g., 6000.00" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                        </HBox>
+
+                        <VBox spacing="8" GridPane.rowIndex="2">
+                            <Label text="Initial Box Stock" styleClass="form-label, adaptive-text"/>
+                            <TextField fx:id="boxStockField" promptText="0" prefHeight="40" maxWidth="Infinity" />
+                        </VBox>
+                    </GridPane>
+                </VBox>
+            </VBox>
+
+            <!-- Tier 4 (Master Carton / Shipping Box) -->
+            <VBox spacing="15" styleClass="card">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <CheckBox fx:id="tier4Enabled" text="Enable Tier 4: Master Carton / Shipping Box" wrapText="true" style="-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: #0f172a;"/>
+                </HBox>
+                <VBox fx:id="tier4FieldsContainer" spacing="15" managed="false" visible="false">
+                    <GridPane hgap="10" vgap="15">
+                        <columnConstraints>
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="150" prefWidth="1000" />
+                        </columnConstraints>
+
+                        <VBox spacing="8" GridPane.rowIndex="0">
+                            <Label text="Carton Barcode" styleClass="form-label, adaptive-text"/>
+                            <HBox spacing="10">
+                                <TextField fx:id="tier4Barcode" promptText="Scan or enter carton barcode" HBox.hgrow="ALWAYS" prefHeight="40" maxWidth="Infinity" />
+                                <Button text="Generate" onAction="#generateTier4Barcode" styleClass="btn-secondary" prefHeight="40"/>
+                            </HBox>
+                        </VBox>
+
+                        <HBox spacing="10" GridPane.rowIndex="1">
+                            <VBox spacing="8" HBox.hgrow="ALWAYS" style="-fx-background-color: rgba(16, 185, 129, 0.05); -fx-border-color: rgba(16, 185, 129, 0.3); -fx-border-width: 1; -fx-border-style: dashed; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 12;">
+                                <Label text="BACKGROUND CALCULATION MATH" style="-fx-font-size: 10; -fx-font-weight: bold; -fx-text-fill: #10b981; -fx-letter-spacing: 0.5;"/>
+                                <Label text="Boxes in ONE Carton:" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="tier4YieldInput" promptText="e.g., 10" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                            <VBox spacing="8" HBox.hgrow="ALWAYS" style="-fx-padding: 12;">
+                                <Region prefHeight="15"/>
+                                <Label text="Carton Wholesale Price (KSh)" style="-fx-font-weight: bold;" styleClass="form-label, adaptive-text"/>
+                                <TextField fx:id="tier4WholesaleInput" promptText="e.g., 60000.00" prefHeight="40" maxWidth="Infinity" />
+                            </VBox>
+                        </HBox>
+
+                        <VBox spacing="8" GridPane.rowIndex="2">
+                            <Label text="Initial Carton Stock" styleClass="form-label, adaptive-text"/>
+                            <TextField fx:id="tier4StockInput" promptText="0" prefHeight="40" maxWidth="Infinity" />
+                        </VBox>
+                    </GridPane>
+                </VBox>
+            </VBox>
         </VBox>
-    </bottom>
-</BorderPane>
+    </HBox>
+
+    <HBox spacing="15" alignment="CENTER_RIGHT" style="-fx-padding: 10 0 0 0;">
+        <Label fx:id="errorLabel" style="-fx-text-fill: -fx-danger; -fx-font-weight: bold;" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="Reset" onAction="#handleClear" styleClass="btn-ghost" prefWidth="100" prefHeight="45" />
+        <Button text="Save Product Hierarchy" onAction="#handleSave" styleClass="btn-primary" prefWidth="200" prefHeight="45" />
+    </HBox>
+</VBox>
